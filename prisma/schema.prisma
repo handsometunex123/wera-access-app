@@ -1,0 +1,221 @@
+model Feedback {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  createdAt DateTime @default(now())
+}
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+model SupportTicketMessage {
+  id           String   @id @default(uuid())
+  ticketId     String
+  userId       String
+  message      String
+  createdAt    DateTime @default(now())
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
+}
+// Prisma schema for Westend Estate Ikota Access Control
+// Add all models as described in README
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(uuid())
+  fullName         String
+  email            String @unique
+  phone            String
+  estateUniqueId String   @unique
+  role           Role
+  status         Status
+  mainResidentId String?
+  mainResident   User?    @relation("MainResidentDependants", fields: [mainResidentId], references: [id])
+  dependants     User[]   @relation("MainResidentDependants")
+  sessionToken   String?
+  password       String
+  profileImage   String?
+  address        String
+  relationship   String?  // Relationship to main resident (for dependants)
+  canManageCodes Boolean  @default(false)
+  canGenerateAdminCode Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  invites        Invite[]
+  accessCodes    AccessCode[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  residentPaymentRequests PaymentRequest[] @relation("ResidentPaymentRequests")
+  adminPaymentRequests PaymentRequest[] @relation("AdminPaymentRequests")
+  supportTickets SupportTicket[]
+  profileUpdateRequests ProfileUpdateRequest[]
+  supportTicketMessages SupportTicketMessage[]
+  passwordResetTokens PasswordResetToken[]
+  feedbacks Feedback[]
+  codeScanLogs CodeScanLog[] @relation("GuardCodeScanLogs")
+  dependantPermissionRequests DependantPermissionRequest[] @relation("DependantPermissionRequestsDependant")
+  mainResidentPermissionRequests DependantPermissionRequest[] @relation("DependantPermissionRequestsMainResident")
+  verificationCode   String?  // Verification code for new device login
+  rejectionReason String? // Reason for rejection, if the user is rejected
+  resubmissionToken String? // Token for resubmission link
+  resubmissionTokenExpiresAt DateTime? // Expiration time for the token
+}
+
+model DependantPermissionRequest {
+  id             String   @id @default(uuid())
+  dependantId    String
+  mainResidentId String
+  reason         String
+  status         String   // PENDING, APPROVED, REJECTED
+  type           String   // e.g. CODE_MODULE
+  createdAt      DateTime @default(now())
+  dependant      User     @relation("DependantPermissionRequestsDependant", fields: [dependantId], references: [id])
+  mainResident   User     @relation("DependantPermissionRequestsMainResident", fields: [mainResidentId], references: [id])
+}
+
+enum Role {
+  ADMIN
+  MAIN_RESIDENT
+  DEPENDANT
+  ESTATE_GUARD
+}
+
+enum Status {
+  PENDING
+  APPROVED
+  DISABLED
+  REVOKED
+  BLOCKED
+}
+
+model AccessCode {
+  id           String   @id @default(uuid())
+  code         String   // 6-digit string
+  createdById  String
+  type         AccessCodeType? @default(ADMIN) // ADMIN or RESIDENT
+  inviteStart  DateTime
+  inviteEnd    DateTime
+  usageLimit   Int
+  usageCount   Int
+  usageType    UsageType
+  status       CodeStatus
+  qrCodeUrl    String?
+  usedAt       DateTime?
+  createdAt    DateTime @default(now())
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  codeScanLogs CodeScanLog[] @relation("AccessCodeScanLogs")
+}
+
+enum AccessCodeType {
+  ADMIN
+  RESIDENT
+}
+
+enum UsageType {
+  ENTRY_ONLY
+  ENTRY_AND_EXIT
+}
+
+enum CodeStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  REVOKED
+  CHECKED_OUT // Added to support checkout functionality
+}
+
+model Invite {
+  id           String   @id @default(uuid())
+  userId       String? // optional, only set after registration
+  email        String   // email to invite
+  role         Role     // role to invite
+  status       String
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  user         User?    @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id           String   @id @default(uuid())
+  userId       String
+  message      String
+  read         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String
+  action       String
+  metadata     String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model PaymentRequest {
+  id           String   @id @default(uuid())
+  userId       String // Resident
+  adminId      String // Admin who raised request
+  amount       Float
+  status       PaymentStatus
+  rejectReason String? // Admin-provided reason for rejection
+  details      String? // Optional description
+  paymentProofUrl String? // Resident upload
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation("ResidentPaymentRequests", fields: [userId], references: [id])
+  admin        User     @relation("AdminPaymentRequests", fields: [adminId], references: [id])
+  notificationSent Boolean @default(false)
+  notificationRead Boolean @default(false)
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REJECTED
+}
+
+model SupportTicket {
+  id           String   @id @default(uuid())
+  userId       String
+  subject      String
+  description  String
+  status       String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+  messages     SupportTicketMessage[]
+}
+
+model ProfileUpdateRequest {
+  id           String   @id @default(uuid())
+  userId       String
+  updateType   String
+  status       String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model CodeScanLog {
+  id        String   @id @default(uuid())
+  guardId   String
+  codeId    String
+  status    String   // e.g., 'SUCCESS', 'FAIL'
+  message   String?
+  createdAt DateTime @default(now())
+  guard     User     @relation("GuardCodeScanLogs", fields: [guardId], references: [id])
+  code      AccessCode @relation("AccessCodeScanLogs", fields: [codeId], references: [id])
+}

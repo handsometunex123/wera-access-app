@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #0a2d18;
+  --text-deep: #0a2d18;
+  --text-deeper: #022c22;
+  --text-dark: #0a0a0a;
+  --text-emerald: #065f46;
+  --text-blue: #1e3a8a;
+  --text-red: #b91c1c;
+}
+
+/* Removed @theme inline block for Tailwind v3 compatibility */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--text-deep);
+  font-family: 'Inter', 'Segoe UI', Arial, 'Merriweather', serif, sans-serif;
+  min-height: 100vh;
+  position: relative;
+}
+.text-deep {
+  color: var(--text-deep);
+}
+.text-deeper {
+  color: var(--text-deeper);
+}
+.text-dark {
+  color: var(--text-dark);
+}
+.text-emerald {
+  color: var(--text-emerald);
+}
+.text-blue {
+  color: var(--text-blue);
+}
+.text-red {
+  color: var(--text-red);
+}

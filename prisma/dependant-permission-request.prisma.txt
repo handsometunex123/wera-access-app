@@ -1,0 +1,12 @@
+// Add this model to schema.prisma
+model DependantPermissionRequest {
+  id             String   @id @default(uuid())
+  dependantId    String
+  mainResidentId String
+  reason         String
+  status         String   // PENDING, APPROVED, REJECTED
+  type           String   // e.g. CODE_MODULE
+  createdAt      DateTime @default(now())
+  dependant      User     @relation(fields: [dependantId], references: [id])
+  mainResident   User     @relation(fields: [mainResidentId], references: [id])
+}
