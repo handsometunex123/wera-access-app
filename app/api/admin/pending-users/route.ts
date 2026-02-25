@@ -23,9 +23,6 @@ export async function GET(req: NextRequest) {
 
   const where = {
     status: Status.PENDING,
-    mainResident: {
-      status: { not: Status.REVOKED }, // Exclude dependants of rejected main residents
-    },
     ...(role ? { role: Role[role as keyof typeof Role] } : {}),
     ...(search
       ? {
