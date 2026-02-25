@@ -7,8 +7,6 @@ import type { Session, SessionStrategy } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import { randomUUID } from "crypto";
 
-
-
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -27,36 +25,36 @@ export const authOptions = {
         if (!valid) return null;
 
         // Enforce single-device login for residents
-        if (user.role === "MAIN_RESIDENT" || user.role === "DEPENDANT") {
-          const sessionToken = credentials.sessionToken || randomUUID(); // Generate if not provided
+        // if (user.role === "MAIN_RESIDENT" || user.role === "DEPENDANT") {
+        //   const sessionToken = credentials.sessionToken || randomUUID(); // Generate if not provided
 
-          // Check if the login is from a new device
-          if (user.sessionToken && user.sessionToken !== sessionToken) {
-            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // Generate 6-digit code
+        //   // Check if the login is from a new device
+        //   if (user.sessionToken && user.sessionToken !== sessionToken) {
+        //     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // Generate 6-digit code
 
-            // Send email notification with the verification code
-            await sendEmail({
-              to: user.email,
-              subject: "New Login Attempt Detected",
-              text: `A login attempt was made from a new device. Please use the following code to verify your login: ${verificationCode}`,
-            });
+        //     // Send email notification with the verification code
+        //     await sendEmail({
+        //       to: user.email,
+        //       subject: "New Login Attempt Detected",
+        //       text: `A login attempt was made from a new device. Please use the following code to verify your login: ${verificationCode}`,
+        //     });
 
-            // Store the verification code in the database
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { verificationCode },
-            });
+        //     // Store the verification code in the database
+        //     await prisma.user.update({
+        //       where: { id: user.id },
+        //       data: { verificationCode },
+        //     });
 
-            return null; // Prevent login until the code is verified
-          }
+        //     return null; // Prevent login until the code is verified
+        //   }
 
-          // Update session token and log out from other devices
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { sessionToken, verificationCode: null },
-          });
-          return { id: user.id, email: user.email, role: user.role, sessionToken };
-        }
+        //   // Update session token and log out from other devices
+        //   await prisma.user.update({
+        //     where: { id: user.id },
+        //     data: { sessionToken, verificationCode: null },
+        //   });
+        //   return { id: user.id, email: user.email, role: user.role, sessionToken };
+        // }
 
         return { id: user.id, email: user.email, role: user.role };
       },
