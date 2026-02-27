@@ -14,7 +14,6 @@ export async function proxy(request: NextRequest) {
 
   // Get session token (works for both JWT and session cookies)
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-
   // Redirect root (/) to /auth if not authenticated
   if (pathname === "/" && !token) {
     return NextResponse.redirect(new URL("/auth", request.url));
@@ -33,6 +32,22 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/", request.url));
     }
   }
+  
+    // Role-based route enforcement
+    if (token) {
+      // Admin can only access /admin
+      if (token.role === "ADMIN" && (pathname.startsWith("/resident") || pathname.startsWith("/estate-guard"))) {
+        return NextResponse.redirect(new URL("/auth", request.url));
+      }
+      // Resident (MAIN_RESIDENT or DEPENDANT) can only access /resident
+      if ((token.role === "MAIN_RESIDENT" || token.role === "DEPENDANT") && (pathname.startsWith("/admin") || pathname.startsWith("/estate-guard"))) {
+        return NextResponse.redirect(new URL("/auth", request.url));
+      }
+      // Estate Guard can only access /estate-guard
+      if (token.role === "ESTATE_GUARD" && (pathname.startsWith("/admin") || pathname.startsWith("/resident"))) {
+        return NextResponse.redirect(new URL("/auth", request.url));
+      }
+    }
 
   return NextResponse.next();
 }
