@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const inviteEnd = new Date(now.getTime() + validityMinutes * 60000);
     const qrCodeUrl = await QRCode.toDataURL(code);
+    // Enforce maximum usage limit of 4
+    let limitedUsageLimit = Number(usageLimit) || 1;
+    if (limitedUsageLimit > 4) limitedUsageLimit = 4;
+
     const accessCode = await prisma.accessCode.create({
       data: {
         code,
@@ -35,8 +39,10 @@ export async function POST(req: NextRequest) {
         type: "ADMIN", // Mark as admin code
         inviteStart: now,
         inviteEnd,
-        usageLimit,
+        usageLimit: limitedUsageLimit,
         usageCount: 0,
+        entryCount: 0,
+        exitCount: 0,
         usageType,
         status: "ACTIVE",
         qrCodeUrl,

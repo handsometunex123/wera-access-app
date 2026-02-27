@@ -228,10 +228,10 @@ export default function GenerateAdminCodePage() {
           <input
             type="number"
             min={1}
-            max={10}
+            max={4}
             className="crispy-input w-full"
             value={form.usageLimit}
-            onChange={e => setForm(f => ({ ...f, usageLimit: Math.max(1, Number(e.target.value)) }))}
+            onChange={e => setForm(f => ({ ...f, usageLimit: Math.max(1, Math.min(4, Number(e.target.value))) }))}
             required
           />
           {fieldErrors.usageLimit && <div className="text-red-600 text-sm mt-1">{fieldErrors.usageLimit}</div>}
@@ -244,22 +244,22 @@ export default function GenerateAdminCodePage() {
           </button>
         </form>
         {showDialog && result && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-3xl shadow-2xl p-4 md:p-6 max-w-md w-full relative flex flex-col items-center animate-fadeIn gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-2">
+            <div className="bg-white rounded-xl shadow-2xl p-3 md:p-6 w-full max-w-sm md:max-w-md relative flex flex-col items-center animate-fadeIn gap-3">
               <button
-                className="absolute top-4 right-5 text-gray-400 hover:text-emerald-700 transition"
+                className="absolute top-3 right-3 text-gray-400 hover:text-emerald-700 transition"
                 onClick={() => setShowDialog(false)}
                 aria-label="Close dialog"
               >
-                <XMarkIcon className="w-8 h-8" />
+                <XMarkIcon className="w-6 h-6" />
               </button>
-              <h2 className="text-lg md:text-xl font-extrabold text-emerald-900 mb-2 text-center tracking-tight">Admin Code Generated</h2>
-              <div className="w-48 h-48 mx-auto border-2 border-emerald-100 rounded-2xl bg-white flex items-center justify-center overflow-hidden mb-2">
+              <h2 className="text-lg md:text-xl font-extrabold text-emerald-900 mb-1 md:mb-2 text-center tracking-tight">Admin Code Generated</h2>
+              <div className="w-40 h-40 mx-auto border-2 border-emerald-100 rounded-lg bg-white flex items-center justify-center overflow-hidden mb-2">
                 {result.qrCodeUrl && (
-                  <Image src={result.qrCodeUrl} alt="QR Code" width={192} height={192} className="object-contain" priority unoptimized />
+                  <Image src={result.qrCodeUrl} alt="QR Code" width={160} height={160} className="object-contain" priority unoptimized />
                 )}
               </div>
-              <div className="text-xl md:text-4xl font-mono font-extrabold text-emerald-800 mb-4 tracking-widest break-all select-all text-center" style={{letterSpacing:'0.15em'}}>{result.code}</div>
+              <div className="text-lg md:text-4xl font-mono font-extrabold text-emerald-800 mb-3 tracking-widest break-all select-all text-center" style={{letterSpacing:'0.12em'}}>{result.code}</div>
               <div className="w-full bg-gray-50 rounded-2xl p-3 flex flex-col gap-2 text-gray-800 text-base">
                 <div className="flex justify-between"><span className="font-semibold">Valid From:</span> <span>{formatShortDate(result.inviteStart)}</span></div>
                 <div className="flex justify-between"><span className="font-semibold">Expires On:</span> <span>{formatShortDate(result.inviteEnd)}</span></div>

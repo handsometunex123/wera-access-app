@@ -22,7 +22,9 @@ export async function GET() {
     take: 50,
     include: {
       guard: true,
-      code: true,
+      code: {
+        include: { createdBy: true },
+      },
     },
   });
   // Map to return code value from code relation
@@ -32,6 +34,17 @@ export async function GET() {
     createdAt: scan.createdAt,
     guard: scan.guard ? { id: scan.guard.id, fullName: scan.guard.fullName } : null,
     code: scan.code?.code || null,
+    generatedBy: scan.code?.createdBy
+      ? {
+          id: scan.code.createdBy.id,
+          fullName: scan.code.createdBy.fullName,
+          email: scan.code.createdBy.email,
+          phone: scan.code.createdBy.phone,
+          estateUniqueId: scan.code.createdBy.estateUniqueId,
+          profileImage: scan.code.createdBy.profileImage || null,
+          address: scan.code.createdBy.address || null,
+        }
+      : null,
   }));
   return NextResponse.json({ stats: mappedScans });
   return NextResponse.json({ stats: scans });

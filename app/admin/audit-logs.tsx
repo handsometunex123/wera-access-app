@@ -56,8 +56,8 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-lg p-6">
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="w-full max-w-full sm:max-w-5xl mx-auto bg-white rounded-xl shadow-lg p-4 md:p-6">
         <h1 className="text-2xl font-bold text-emerald-900 mb-4">Audit Logs</h1>
         <div className="flex gap-2 mb-4 flex-wrap">
           <input
@@ -87,7 +87,23 @@ export default function AuditLogsPage() {
         </div>
         {loading && <div>Loading...</div>}
         {error && <div className="text-red-800 mb-2">{error}</div>}
-        <div className="overflow-x-auto">
+        {/* Mobile cards */}
+        {!loading && logs.length > 0 && (
+          <div className="space-y-3 md:hidden">
+            {logs.map(log => (
+              <div key={log.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                <div className="font-semibold text-emerald-900">{log.user.fullName}</div>
+                <div className="text-xs text-gray-500">{log.user.email}</div>
+                <div className="mt-2 text-sm text-gray-800 break-words whitespace-normal">{log.action}</div>
+                <div className="text-xs text-gray-500 mt-1">{new Date(log.createdAt).toLocaleString()}</div>
+                {log.metadata && <pre className="mt-2 text-xs text-gray-700 whitespace-pre-wrap break-words break-all max-w-full">{log.metadata}</pre>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border text-sm text-gray-900">
             <thead>
               <tr className="bg-gray-200">
@@ -104,7 +120,7 @@ export default function AuditLogsPage() {
                   <td className="p-2 text-gray-900">{log.user.fullName}</td>
                   <td className="p-2 text-gray-900">{log.user.email}</td>
                   <td className="p-2 text-gray-900">{log.action}</td>
-                  <td className="p-2 whitespace-pre-wrap max-w-xs text-gray-900">{log.metadata}</td>
+                  <td className="p-2 text-gray-900 break-words break-all max-w-xs">{log.metadata}</td>
                   <td className="p-2 text-gray-900">{new Date(log.createdAt).toLocaleString()}</td>
                 </tr>
               ))}

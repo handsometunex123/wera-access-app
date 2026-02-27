@@ -1,11 +1,19 @@
-"use client";
 import "./globals.css";
 
-import { GlobalLoader } from "./GlobalLoader";
-import NotificationProvider from "../components/NotificationProvider";
-import { SessionProvider } from "next-auth/react";
-// import EstateBg from "./estate-bg.svg.jsx";
-// ...existing code...
+import type { Metadata } from "next";
+import ClientProviders from "../components/ClientProviders";
+
+export const metadata: Metadata = {
+  title: "Wera Access Control",
+  description:
+    "Secure and manage access to your estate with Wera Access Control. Our app provides seamless entry management, real-time notifications, and comprehensive admin tools to ensure the safety and convenience of your residents.",
+  manifest: "/manifest.json",
+};
+
+export const viewport = {
+  // Move theme color to the viewport export per environment warning
+  themeColor: "#059669",
+};
 
 export default function RootLayout({
   children,
@@ -14,13 +22,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+      </head>
       <body>
-        <SessionProvider>
-          <GlobalLoader />
-          <NotificationProvider />
-          {children}
-          {/* <EstateBg /> */}
-        </SessionProvider>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );

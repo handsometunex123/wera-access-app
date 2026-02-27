@@ -95,7 +95,35 @@ export default function PaymentRequestsPage() {
         </div>
         {loading && <div>Loading...</div>}
         {error && <div className="text-red-800 mb-2">{error}</div>}
-        <div className="overflow-x-auto">
+        {/* Mobile: stacked cards */}
+        {!loading && requests.length > 0 && (
+          <div className="space-y-3 md:hidden">
+            {requests.map(req => (
+              <div key={req.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-semibold text-emerald-900">{req.user.fullName}</div>
+                    <div className="text-xs text-gray-500">{req.user.email}</div>
+                    <div className="mt-2 text-sm text-gray-800 break-words whitespace-normal">₦{req.amount.toLocaleString()}</div>
+                    <div className="text-xs text-gray-500 mt-1">{req.details || "-"}</div>
+                    <div className="text-xs text-gray-500 mt-1">{new Date(req.createdAt).toLocaleString()}</div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    {req.status === "PENDING" && (
+                      <>
+                        <button className="text-emerald-900 underline" onClick={() => handleAction(req.id, "approve")}>Mark as Paid</button>
+                        <button className="text-red-700 underline" onClick={() => handleAction(req.id, "reject")}>Reject</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop: table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border text-sm text-gray-900">
             <thead>
               <tr className="bg-gray-200">

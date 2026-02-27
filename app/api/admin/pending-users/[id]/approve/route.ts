@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendDependantApprovalEmail } from "@/lib/email";
+import { getServerSession } from "@/lib/getServerSession";
 
 // POST /api/admin/pending-users/[id]/approve
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   try {
+    const session = await getServerSession();
+    // if (!session || (session.user as any)?.role !== 'ADMIN') {
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // }
+    if (!session || !session.user || typeof (session.user as { role?: string }).role !== "string" || (session.user as { role: string }).role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
     // Fetch user first
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
@@ -51,6 +59,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         data: { status: "APPROVED" },
       });
     }
+    // Notify admins
+    // await notifyAdmins(`${session.user?.fullName || session.user?.email} approved user ${updatedUser.email}`);
     return NextResponse.json({ success: true, user: updatedUser });
   } catch {
     return NextResponse.json({ error: "Failed to approve user" }, { status: 400 });

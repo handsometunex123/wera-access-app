@@ -167,7 +167,28 @@ export default function AdminUsersPage() {
         </div>
         {loading ? <div>Loading...</div> : null}
         {/* All errors and actions now use toast notifications */}
-        <div className="overflow-x-auto">
+        {/* Mobile: cards */}
+        <div className="md:hidden space-y-3">
+          {filteredUsers.map(user => (
+            <div key={user.id} className="bg-white border rounded-lg p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-emerald-900">{user.fullName}</div>
+                  <div className="text-xs text-gray-500">{user.email}</div>
+                  <div className="text-xs text-gray-500 mt-1">{user.role} • {user.status}</div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <div>
+                    <button className="text-yellow-700 underline mr-2 font-semibold" onClick={() => handleAction(user.id, 'disable')} disabled={user.id === loggedInUserId}>Disable</button>
+                    <button className="text-red-700 underline font-semibold" onClick={() => handleAction(user.id, 'revoke')} disabled={user.id === loggedInUserId}>Revoke</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border text-sm text-emerald-900">
             <thead>
               <tr className="bg-emerald-100 text-emerald-900">

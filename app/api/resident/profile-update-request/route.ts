@@ -21,6 +21,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Prevent duplicate pending requests from the same user
+    const existing = await prisma.profileUpdateRequest.findFirst({ where: { userId, status: "PENDING" } });
+    if (existing) {
+      return NextResponse.json({ error: "You already have a pending profile update request." }, { status: 400 });
+    }
     await prisma.profileUpdateRequest.create({
       data: {
         userId,
@@ -30,6 +35,7 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to submit update request." }, { status: 500 });
+      console.error("Failed to submit update request", error);
+      return NextResponse.json({ error: "Failed to submit update request." }, { status: 500 });
   }
 }

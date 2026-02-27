@@ -38,6 +38,7 @@
   "devDependencies": {
     "@types/minimatch": "^6.0.0",
     "@types/next-auth": "^3.15.0",
+    "@types/next-pwa": "^5.6.9",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.10",
     "@types/react": "^19",

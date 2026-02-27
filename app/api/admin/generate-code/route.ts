@@ -32,8 +32,11 @@ export async function POST(request: Request) {
 				type: "ADMIN", // Mark as admin code
 				inviteStart: now,
 				inviteEnd,
-				usageLimit,
+				// Enforce max usage limit of 4
+				usageLimit: Math.min(Number(usageLimit) || 1, 4),
 				usageCount: 0,
+				entryCount: 0,
+				exitCount: 0,
 				usageType,
 				status: "ACTIVE",
 				qrCodeUrl,

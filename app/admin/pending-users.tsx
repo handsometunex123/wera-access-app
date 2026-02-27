@@ -28,7 +28,7 @@ import { UserIcon, UsersIcon, XMarkIcon } from "@heroicons/react/24/solid";
 function UserDetailsModal({ dependant, mainResident, onClose }: UserDetailsModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative animate-fadeIn p-0">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm md:max-w-2xl relative animate-fadeIn p-3 md:p-6">
         <button
           className="absolute top-3 right-4 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:bg-emerald-50 hover:border-emerald-400 transition flex items-center justify-center z-20"
           onClick={onClose}
@@ -111,7 +111,7 @@ function RejectionReasonModal({ isOpen, onClose, onSubmit }: { isOpen: boolean; 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm md:max-w-md p-3 md:p-6 relative">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Rejection Reason</h2>
         <textarea
           className="w-full border rounded p-2 text-gray-800"
@@ -247,7 +247,28 @@ export default function PendingApprovalPage() {
           </select>
         </div>
         {loading && <div>Loading...</div>}
-        <div className="overflow-x-auto">
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-3">
+          {users.map(user => (
+            <div key={user.id} className="bg-white border rounded-lg p-4 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="font-semibold text-emerald-900">{user.fullName}</div>
+                  <div className="text-xs text-gray-500">{user.email} • {user.phone}</div>
+                  <div className="text-xs text-gray-500 mt-1">{user.role}</div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <button className="text-emerald-900 underline" onClick={() => handleAction(user.id, "approve")}>Approve</button>
+                  <button className="text-red-700 underline" onClick={() => handleAction(user.id, "reject")}>Reject</button>
+                  <button className="text-blue-700 underline" onClick={() => setModalUser(user)}>View</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border text-xs sm:text-sm text-emerald-900">
             <thead>
               <tr className="bg-emerald-100 text-emerald-900">

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sendEmail } from "@/lib/email"; // Assuming there is an email utility
+import { getServerSession } from "@/lib/getServerSession";
+import { notifyAdmins } from "@/lib/adminNotifications";
 
 // POST /api/admin/pending-users/[id]/reject
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -12,6 +14,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   }
 
   try {
+    const session = await getServerSession();
+    // if (!session || (session.user as any)?.role !== 'ADMIN') {
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // }
+
+    if (!session || !session.user || typeof (session.user as { role?: string }).role !== "string" || (session.user as { role: string }).role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
     // Update the user's status and persist the rejection reason
     const user = await prisma.user.update({
       where: { id },
@@ -39,6 +50,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       Best regards,
       The Team`,
     });
+
+    // Notify admins
+    // await notifyAdmins(`${session.user?.fullName || session.user?.email} rejected user ${user.email}: ${rejectionReason}`);
 
     return NextResponse.json({ success: true, user });
   } catch (error) {

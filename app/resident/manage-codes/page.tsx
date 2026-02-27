@@ -229,30 +229,30 @@ export default function ResidentManageCodesPage() {
       {/* Details Modal */}
       {detailsCode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-3xl shadow-2xl p-4 md:p-6 max-w-md w-full relative flex flex-col items-center animate-fadeIn gap-4">
+          <div className="bg-white rounded-xl shadow-lg p-3 md:p-6 w-full max-w-sm md:max-w-md relative flex flex-col items-center animate-fadeIn gap-3">
             <button
-              className="absolute top-4 right-5 text-gray-400 hover:text-emerald-700 transition"
+              className="absolute top-3 right-3 text-gray-400 hover:text-emerald-700 transition"
               onClick={() => setDetailsCode(null)}
               aria-label="Close dialog"
             >
-              <XMarkIcon className="w-8 h-8" />
+              <XMarkIcon className="w-6 h-6" />
             </button>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-emerald-900 mb-2 text-center tracking-tight">
+            <h2 className="text-lg md:text-3xl font-extrabold text-emerald-900 mb-1 md:mb-2 text-center tracking-tight">
               {detailsCode.type === "ADMIN" ? "Admin Access Code Details" : "Access Code Details"}
             </h2>
-            <div className="text-3xl font-mono font-extrabold text-emerald-800 mb-2 tracking-widest break-all select-all text-center" style={{letterSpacing:'0.15em'}}>{detailsCode.code}</div>
+            <div className="text-2xl md:text-3xl font-mono font-extrabold text-emerald-800 mb-2 tracking-wider break-all select-all text-center" style={{letterSpacing:'0.12em'}}>{detailsCode.code}</div>
             {detailsCode.qr && (
               <Image
                 src={detailsCode.qr}
                 alt={`QR code for ${detailsCode.code}`}
-                width={160}
-                height={160}
-                className="object-contain border rounded-xl bg-white"
+                width={140}
+                height={140}
+                className="object-contain border rounded-lg bg-white"
                 priority
                 unoptimized
               />
             )}
-            <div className="w-full bg-gray-50 rounded-2xl p-3 flex flex-col gap-2 text-gray-800 text-base">
+            <div className="w-full bg-gray-50 rounded-lg p-2 flex flex-col gap-2 text-gray-800 text-sm">
               <div className="flex justify-between"><span className="font-semibold">Status:</span> <span>{detailsCode.status}</span></div>
               <div className="flex justify-between"><span className="font-semibold">Usage Type:</span> <span>{detailsCode.usageType}</span></div>
               <div className="flex justify-between"><span className="font-semibold">Valid:</span> <span>{new Date(detailsCode.inviteStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })} - {new Date(detailsCode.inviteEnd).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span></div>

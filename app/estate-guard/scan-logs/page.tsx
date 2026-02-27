@@ -9,6 +9,15 @@ interface ScanLog {
   reason: string;
   createdAt: string;
   guard?: { id: string; fullName: string } | null;
+  generatedBy?: {
+    id: string;
+    fullName: string;
+    email?: string | null;
+    phone?: string | null;
+    estateUniqueId?: string | null;
+    profileImage?: string | null;
+    address?: string | null;
+  } | null;
 }
 
 export default function ScanLogsPage() {
@@ -16,6 +25,8 @@ export default function ScanLogsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(""); // State for search query
   const [currentPage, setCurrentPage] = useState(1); // State for current page
+  const [selectedUser, setSelectedUser] = useState<ScanLog['generatedBy'] | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { data: session } = useSession();
   interface SessionUser {
     id?: string;
@@ -83,7 +94,7 @@ export default function ScanLogsPage() {
                   <thead>
                     <tr className="bg-emerald-100 text-emerald-900">
                       <th className="px-4 py-3 text-left font-semibold border-b border-emerald-300">Code</th>
-                      <th className="px-4 py-3 text-left font-semibold border-b border-emerald-300">Guard</th>
+                      <th className="px-4 py-3 text-left font-semibold border-b border-emerald-300">Resident</th>
                       <th className="px-4 py-3 text-left font-semibold border-b border-emerald-300">Status</th>
                       <th className="px-4 py-3 text-left font-semibold border-b border-emerald-300">Time</th>
                     </tr>
@@ -114,7 +125,21 @@ export default function ScanLogsPage() {
                           } transition-colors`}
                         >
                           <td className="px-4 py-3 font-mono border-b border-emerald-300">{scan.code}</td>
-                          <td className="px-4 py-3 border-b border-emerald-300">{scan.guard?.fullName || "-"}</td>
+                          <td className="px-4 py-3 border-b border-emerald-300">
+                            {scan.generatedBy ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(scan.generatedBy ?? null);
+                                  setIsModalOpen(true);
+                                }}
+                                className="text-emerald-800 hover:underline"
+                              >
+                                {scan.generatedBy.fullName}
+                              </button>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
                           <td className="px-4 py-3 border-b border-emerald-300">{scan.status}</td>
                           <td className="px-4 py-3 border-b border-emerald-300">{formatDate(scan.createdAt)}</td>
                         </tr>
@@ -122,6 +147,26 @@ export default function ScanLogsPage() {
                     })}
                   </tbody>
                 </table>
+                {/* Modal for generatedBy details */}
+                {isModalOpen && selectedUser && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center px-2">
+                    <div className="fixed inset-0 bg-black/40" onClick={() => setIsModalOpen(false)} />
+                    <div className="bg-white rounded-xl shadow-xl p-3 md:p-6 z-10 w-full max-w-sm md:max-w-md">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h2 className="text-xl font-semibold text-emerald-900">{selectedUser.fullName}</h2>
+                          {/* <p className="text-sm text-gray-500">{selectedUser.estateUniqueId || ""}</p> */}
+                        </div>
+                        <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+                      </div>
+                      <div className="mt-4 space-y-2 text-sm text-emerald-800">
+                        {/* <div><span className="font-semibold">Email:</span> {selectedUser.email || '—'}</div> */}
+                        <div><span className="font-semibold">Phone:</span> {selectedUser.phone || '—'}</div>
+                        <div><span className="font-semibold">Address:</span> {selectedUser.address || '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-between items-center mt-4">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}

@@ -20,8 +20,8 @@ export default function AdminInvitesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [page] = useState<number>(1);
+  const [pageSize] = useState<number>(10);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkSuccess, setBulkSuccess] = useState("");
@@ -154,7 +154,7 @@ export default function AdminInvitesPage() {
         acc[curr] = (acc[curr] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
-      const withErrors = updated.map((invite, idx) => {
+          const withErrors = updated.map((invite) => {
         let error = "";
         if (!validateEmail(invite.email)) error = "Invalid email";
         if (!validRoles.includes(invite.role.toUpperCase())) error = error ? error + ", Invalid role" : "Invalid role";
@@ -213,7 +213,7 @@ export default function AdminInvitesPage() {
   };
 
   // Replace emails state with invitesToSend
-  const [invitesToSend, setInvitesToSend] = useState<{ email: string; role: string }[]>([]);
+  // legacy: invitesToSend removed
 
   // Filtered invites (client-side for search/filter)
   const filteredInvites = invites.filter((invite: Invite) => {
@@ -227,7 +227,7 @@ export default function AdminInvitesPage() {
 
   return (
     <div className="min-h-screen flex justify-center bg-gray-50">
-      <div className="w-full p-8 rounded-2xl shadow-lg bg-white">
+      <div className="w-full p-4 sm:p-8 rounded-xl shadow-lg bg-white">
         {/* Upload Excel File UI - moved to top and styled */}
         <div className="mb-8 border border-emerald-200 rounded-xl bg-emerald-50 p-6 flex flex-col items-start shadow-sm">
           <h2 className="text-lg font-bold text-emerald-700 mb-2 flex items-center">
@@ -238,7 +238,7 @@ export default function AdminInvitesPage() {
             type="file"
             accept=".xlsx, .xls"
             onChange={handleFileUpload}
-            className="mb-3 border border-emerald-300 rounded px-3 py-2 bg-white text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+            className="mb-3 border border-emerald-300 rounded px-3 py-2 bg-white text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition w-full"
           />
           {uploadedFileName && (
             <div className="mb-2 text-xs text-emerald-700">Selected file: <span className="font-semibold">{uploadedFileName}</span></div>
@@ -261,46 +261,48 @@ export default function AdminInvitesPage() {
               </div>
               <ul className="max-h-48 overflow-y-auto bg-white border border-emerald-100 rounded p-2 text-xs text-emerald-900">
                 {editInvites.map((invite, index) => (
-                  <li key={index} className="py-1 border-b last:border-b-0 flex items-center gap-2">
+                  <li key={index} className="py-1 border-b last:border-b-0 flex flex-col sm:flex-row sm:items-center gap-2">
                     <input
-                      className={`border rounded px-2 py-1 w-48 ${invite.error?.includes('email') ? 'border-red-400' : 'border-emerald-200'}`}
+                      className={`border rounded px-2 py-1 flex-1 min-w-0 ${invite.error?.includes('email') ? 'border-red-400' : 'border-emerald-200'}`}
                       value={invite.email}
                       onChange={e => handleEditInvite(index, 'email', e.target.value)}
                     />
                     <select
-                      className={`border rounded px-2 py-1 ${invite.error?.includes('role') ? 'border-red-400' : 'border-emerald-200'}`}
+                      className={`border rounded px-2 py-1 w-full sm:w-40 ${invite.error?.includes('role') ? 'border-red-400' : 'border-emerald-200'}`}
                       value={invite.role}
                       onChange={e => handleEditInvite(index, 'role', e.target.value)}
                     >
                       <option value="MAIN_RESIDENT">Main Resident</option>
                       <option value="ESTATE_GUARD">Estate Guard</option>
                     </select>
-                    {invite.error && <span className="text-red-600 text-xs ml-2">{invite.error}</span>}
-                    <button
-                      type="button"
-                      className="ml-2 text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-red-200 hover:text-red-700 transition font-semibold"
-                      title="Remove row"
-                      onClick={() => {
-                        setEditInvites(prev => {
-                          const updated = prev.filter((_, i) => i !== index);
-                          // Recalculate errors after removal
-                          const emails = updated.map(i => i.email);
-                          const emailCounts = emails.reduce((acc, curr) => {
-                            acc[curr] = (acc[curr] || 0) + 1;
-                            return acc;
-                          }, {} as Record<string, number>);
-                          const withDupes = updated.map(invite => ({
-                            ...invite,
-                            error: invite.error?.replace(/,? ?Duplicate email/, "") || (emailCounts[invite.email] > 1 ? "Duplicate email" : "")
-                          }));
-                          setHasInvalid(withDupes.some(i => i.error));
-                          setHasDuplicates(withDupes.some(i => i.error?.includes("Duplicate email")));
-                          return withDupes;
-                        });
-                      }}
-                    >
-                      Remove
-                    </button>
+                    <div className="flex items-center gap-2 sm:ml-2">
+                      {invite.error && <span className="text-red-600 text-xs">{invite.error}</span>}
+                      <button
+                        type="button"
+                        className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-red-200 hover:text-red-700 transition font-semibold"
+                        title="Remove row"
+                        onClick={() => {
+                          setEditInvites(prev => {
+                            const updated = prev.filter((_, i) => i !== index);
+                            // Recalculate errors after removal
+                            const emails = updated.map(i => i.email);
+                            const emailCounts = emails.reduce((acc, curr) => {
+                              acc[curr] = (acc[curr] || 0) + 1;
+                              return acc;
+                            }, {} as Record<string, number>);
+                            const withDupes = updated.map(invite => ({
+                              ...invite,
+                              error: invite.error?.replace(/,? ?Duplicate email/, "") || (emailCounts[invite.email] > 1 ? "Duplicate email" : "")
+                            }));
+                            setHasInvalid(withDupes.some(i => i.error));
+                            setHasDuplicates(withDupes.some(i => i.error?.includes("Duplicate email")));
+                            return withDupes;
+                          });
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -330,9 +332,9 @@ export default function AdminInvitesPage() {
           </button>
         </div>
         {showInviteModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full relative">
-              <button className="absolute top-2 right-4 text-2xl text-emerald-900" onClick={() => setShowInviteModal(false)}>&times;</button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-2">
+            <div className="bg-white rounded-xl shadow-lg p-3 md:p-6 w-full max-w-sm md:max-w-md relative">
+              <button className="absolute top-3 right-3 text-lg text-emerald-900" onClick={() => setShowInviteModal(false)} aria-label="Close dialog">&times;</button>
               <AdminInvitePage onInviteSent={() => { fetchInvites(page, pageSize); setShowInviteModal(false); }} />
             </div>
           </div>
@@ -390,9 +392,41 @@ export default function AdminInvitesPage() {
             </table>
           </div>
         )}
-        {/* Only show table if there are invites */}
+        {/* Mobile: card list (small screens) */}
         {!loading && filteredInvites.length > 0 && (
-          <table className="w-full text-sm border">
+          <div className="space-y-3 md:hidden">
+            {filteredInvites.map(invite => (
+              <div key={invite.id} className="p-4 bg-white border rounded-lg shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-emerald-900">{invite.email}</div>
+                    <div className="text-xs text-gray-500">{invite.role} • {new Date(invite.expiresAt).toLocaleString()}</div>
+                    <div className="mt-2">
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${invite.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : invite.status === 'USED' ? 'bg-emerald-100 text-emerald-700' : invite.status === 'EXPIRED' ? 'bg-gray-200 text-gray-600' : invite.status === 'REVOKED' ? 'bg-red-100 text-red-700' : ''}`}>{invite.status}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <button
+                      className={`px-3 py-1 rounded ${["USED", "REVOKED"].includes(invite.status) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-emerald-600 text-white"}`}
+                      onClick={() => !["USED", "REVOKED"].includes(invite.status) && handleAction(invite.id, "resend")}
+                      disabled={["USED", "REVOKED"].includes(invite.status)}
+                    >Resend</button>
+                    <button
+                      className={`px-3 py-1 rounded ${["USED", "REVOKED"].includes(invite.status) ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-600 text-white"}`}
+                      onClick={() => !["USED", "REVOKED"].includes(invite.status) && handleAction(invite.id, "revoke")}
+                      disabled={["USED", "REVOKED"].includes(invite.status)}
+                    >Revoke</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop: table (md+) */}
+        {!loading && filteredInvites.length > 0 && (
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-sm border">
             <thead>
               <tr className="bg-emerald-100">
                 <th className="px-6 py-3 text-left border align-middle">Email</th>
@@ -444,7 +478,8 @@ export default function AdminInvitesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </div>
     </div>

@@ -19,16 +19,16 @@ export default function PasscodeModal({ onSubmit, onClose, loading = false, erro
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-xs w-full relative flex flex-col items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-2">
+      <div className="bg-white rounded-xl shadow-lg p-3 md:p-6 w-full max-w-sm relative flex flex-col items-center">
         <button
-          className="absolute top-2 right-4 text-2xl text-emerald-900"
+          className="absolute top-2 right-3 text-xl text-emerald-900"
           onClick={onClose}
           aria-label="Close passcode modal"
         >
           &times;
         </button>
-        <h2 className="text-xl font-bold text-emerald-900 mb-4">Enter Passcode</h2>
+        <h2 className="text-lg font-bold text-emerald-900 mb-3">Enter Passcode</h2>
         <form className="flex flex-col gap-4 w-full" onSubmit={handleSubmit}>
           <input
             type="password"

@@ -11,6 +11,7 @@ export default function AdminProfilePage() {
   const [initialForm, setInitialForm] = useState({ fullName: "", phone: "", profileImage: "" });
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const notify = useNotify();
 
   useEffect(() => {
     fetch("/api/admin/profile")
@@ -26,7 +27,7 @@ export default function AdminProfilePage() {
       })
       .catch(() => notify("Failed to load profile", "error"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [notify]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +52,7 @@ export default function AdminProfilePage() {
     }
   }
 
-  const notify = useNotify();
+  
   if (loading) return <div className="p-8">Loading...</div>;
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {

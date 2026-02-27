@@ -11,7 +11,8 @@ export async function POST(req: NextRequest) {
     }
     const url = await uploadImage(file);
     return NextResponse.json({ success: true, url });
-  } catch (error) {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Failed to upload image" }, { status: 500 });
   }
 }
@@ -25,7 +26,8 @@ export async function DELETE(req: NextRequest) {
     }
     await deleteImage(publicId);
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Failed to delete image" }, { status: 500 });
   }
 }
