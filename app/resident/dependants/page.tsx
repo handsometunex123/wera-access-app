@@ -186,16 +186,16 @@ export default function DependantsPage() {
           </div>
         )}
         {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-3xl shadow-2xl p-4 md:p-6 max-w-md w-full relative flex flex-col items-center animate-fadeIn gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-2">
+            <div className="bg-white rounded-xl shadow-2xl p-3 md:p-6 w-full max-w-sm md:max-w-md relative flex flex-col items-center animate-fadeIn gap-3">
               <button
-                className="absolute top-4 right-5 text-gray-400 hover:text-emerald-700 transition"
+                className="absolute top-3 right-3 text-gray-400 hover:text-emerald-700 transition"
                 onClick={() => setShowAddModal(false)}
                 aria-label="Close dialog"
               >
-                <XMarkIcon className="w-8 h-8" />
+                <XMarkIcon className="w-6 h-6" />
               </button>
-              <h2 className="text-xl font-bold text-emerald-900 mb-2 text-center">Add New Dependant</h2>
+              <h2 className="text-lg font-bold text-emerald-900 mb-2 text-center">Add New Dependant</h2>
               <form className="w-full flex flex-col gap-3" onSubmit={handleAddDependant}>
                 <div className="flex flex-col items-center gap-2 mb-2">
                   <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-emerald-200 bg-gray-100 flex items-center justify-center">
@@ -266,16 +266,16 @@ export default function DependantsPage() {
         )}
         {/* Permission request modal */}
         {requesting && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-3xl shadow-2xl p-4 md:p-6 max-w-md w-full relative flex flex-col items-center animate-fadeIn gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-2">
+            <div className="bg-white rounded-xl shadow-2xl p-3 md:p-6 w-full max-w-sm md:max-w-md relative flex flex-col items-center animate-fadeIn gap-3">
               <button
-                className="absolute top-4 right-5 text-gray-400 hover:text-emerald-700 transition"
+                className="absolute top-3 right-3 text-gray-400 hover:text-emerald-700 transition"
                 onClick={() => setRequesting(null)}
                 aria-label="Close dialog"
               >
-                <XMarkIcon className="w-8 h-8" />
+                <XMarkIcon className="w-6 h-6" />
               </button>
-              <h2 className="text-xl font-bold text-emerald-900 mb-2 text-center">Request Code Module Access</h2>
+              <h2 className="text-lg font-bold text-emerald-900 mb-2 text-center">Request Code Module Access</h2>
               <div className="text-center text-gray-700 mb-2">
                 You are requesting permission for <span className="font-semibold">{requesting.dependantName}</span> to access code modules.<br />
                 Please provide a reason for admin approval.

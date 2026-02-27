@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { FaUser, FaKey, FaClipboardList, FaBell, FaUserCircle, FaEnvelope } from "react-icons/fa";
 import { signOut } from "next-auth/react"; // Import signOut for logout functionality
@@ -15,6 +16,7 @@ export default function ResidentDashboard() {
   const [actions, setActions] = useState<Action[]>([]);
   const [loading, setLoading] = useState(true);
   const [residentName, setResidentName] = useState<string>("");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   useEffect(() => {
     async function fetchProfile() {
 
@@ -24,6 +26,7 @@ export default function ResidentDashboard() {
       const canManageCodes = data?.profile?.canManageCodes;
       const canGenerateAdminCode = data?.profile?.canGenerateAdminCode;
       setResidentName(data?.profile?.fullName || "Resident");
+      setProfileImage(data?.profile?.profileImage || null);
       const isDependant = data?.profile?.role === "DEPENDANT"; // Check if the user is a dependant
 
       const baseActions = [
@@ -94,8 +97,20 @@ export default function ResidentDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex flex-col items-center justify-start py-8 px-2">
       <div className="w-full max-w-lg mx-auto">
         <div className="flex flex-col items-center mb-8">
-          <div className="rounded-full p-3 shadow mb-2 border border-emerald-100 bg-white">
-            <FaUser className="h-10 w-10 text-emerald-700" />
+          <div className="rounded-full p-1 shadow mb-2 border border-emerald-100 bg-white overflow-hidden w-24 h-24 flex items-center justify-center">
+            {profileImage ? (
+              <Image
+                src={profileImage}
+                alt="Profile"
+                width={96}
+                height={96}
+                className="rounded-full object-cover w-full h-full"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-16 w-16">
+                <FaUser className="h-16 w-16 text-emerald-700" />
+              </div>
+            )}
           </div>
           <h1 className="text-2xl font-extrabold text-emerald-900 mb-1 text-center tracking-tight">Welcome, {residentName}!</h1>
           <p className="text-gray-500 text-center text-base">Quick access to all your estate features</p>

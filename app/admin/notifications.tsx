@@ -21,7 +21,6 @@ export default function AdminNotificationsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
-  const [userId, setUserId] = useState<string | null>(null);
   const [role, setRole] = useState<string>("ALL");
   const [sending, setSending] = useState(false);
 
@@ -49,18 +48,6 @@ export default function AdminNotificationsPage() {
     }
   }
 
-  function handleMarkRead(id: string) {
-    setLoading(true);
-    fetch(`/api/admin/notifications/${id}/mark-read`, { method: "POST" })
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) setError(data.error);
-        else fetchNotifications();
-      })
-      .catch(() => setError("Network error"))
-      .finally(() => setLoading(false));
-  }
-
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
@@ -69,13 +56,12 @@ export default function AdminNotificationsPage() {
       const res = await fetch("/api/admin/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, message, role }),
+        body: JSON.stringify({ message, role }),
       });
       const data = await res.json();
       if (!res.ok) setError(data.error || "Failed to send notification");
       else {
         setMessage("");
-        setUserId(null);
         setRole("ALL");
         fetchNotifications();
       }
@@ -85,21 +71,25 @@ export default function AdminNotificationsPage() {
       setSending(false);
     }
   }
+  
+
+    // ...existing code...
+    // ...existing code...
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6">
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="w-full max-w-full sm:max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-4 md:p-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">Notifications</h1>
-        <form className="mb-6 flex gap-2 items-end" onSubmit={handleSend}>
+        <form className="mb-6 flex flex-col sm:flex-row gap-2 sm:items-end" onSubmit={handleSend}>
           <input
-            className="border border-gray-400 rounded px-3 py-2 w-96 text-gray-900 placeholder-gray-500 focus:border-emerald-800 focus:ring-emerald-800 focus:outline-none"
+            className="border border-gray-400 rounded px-3 py-2 flex-1 w-full text-gray-900 placeholder-gray-500 focus:border-emerald-800 focus:ring-emerald-800 focus:outline-none"
             placeholder="Notification message..."
             value={message}
             onChange={e => setMessage(e.target.value)}
             required
           />
           <select
-            className="border border-gray-400 rounded px-3 py-2 text-gray-900 focus:border-emerald-800 focus:ring-emerald-800 focus:outline-none"
+            className="border border-gray-400 rounded px-3 py-2 w-full sm:w-48 text-gray-900 focus:border-emerald-800 focus:ring-emerald-800 focus:outline-none"
             value={role}
             onChange={e => setRole(e.target.value)}
           >
@@ -109,7 +99,7 @@ export default function AdminNotificationsPage() {
           </select>
           <button
             type="submit"
-            className="bg-emerald-800 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-emerald-900 transition disabled:bg-emerald-300 disabled:text-gray-400"
+            className="w-full sm:w-auto bg-emerald-800 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-emerald-900 transition disabled:bg-emerald-300 disabled:text-gray-400"
             disabled={sending}
           >{sending ? "Sending..." : role === "ALL" ? "Send to All" : role === "MAIN_RESIDENT" ? "Send to Residents" : "Send to Guards"}</button>
         </form>
@@ -123,7 +113,27 @@ export default function AdminNotificationsPage() {
         </div>
         {loading && <div className="text-gray-900">Loading...</div>}
         {error && <div className="text-red-900 mb-2 font-semibold">{error}</div>}
-        <div className="overflow-x-auto">
+        {/* Mobile: stacked notifications */}
+        {!loading && notifications.length > 0 && (
+          <div className="space-y-3 md:hidden">
+            {notifications.map(n => (
+              <div key={n.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-semibold text-emerald-900">{n.user.fullName}</div>
+                    <div className="text-xs text-gray-500">{n.user.email}</div>
+                    <div className="mt-2 text-sm text-gray-800 break-words whitespace-normal">{n.message}</div>
+                    <div className="text-xs text-gray-500 mt-1">{new Date(n.createdAt).toLocaleString()}</div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border text-sm text-gray-900">
             <thead>
               <tr className="bg-gray-200">
@@ -143,14 +153,7 @@ export default function AdminNotificationsPage() {
                   <td className="p-2 text-gray-900">{n.message}</td>
                   <td className="p-2 text-gray-900">{new Date(n.createdAt).toLocaleString()}</td>
                   <td className="p-2 text-gray-900">{n.read ? "Yes" : "No"}</td>
-                  <td className="p-2">
-                    {!n.read && (
-                      <button
-                        className="text-emerald-900 underline font-semibold hover:text-emerald-800 focus:text-emerald-800 focus:outline-none"
-                        onClick={() => handleMarkRead(n.id)}
-                      >Mark Read</button>
-                    )}
-                  </td>
+                  <td className="p-2" />
                 </tr>
               ))}
               {notifications.length === 0 && !loading && (

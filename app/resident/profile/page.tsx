@@ -66,10 +66,23 @@ export default function ResidentProfilePage() {
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
-      setForm(f => ({ ...f, profileImage: file }));
-      const reader = new FileReader();
-      reader.onload = ev => setPhotoPreview(ev.target?.result as string);
-      reader.readAsDataURL(file);
+      // Immediately upload profile image (no admin approval required)
+      setPending(true);
+      const fd = new FormData();
+      fd.append("profileImage", file);
+      fetch("/api/resident/profile-image", { method: "POST", body: fd })
+        .then(async (res) => {
+          const data = await res.json();
+          if (res.ok && data.url) {
+            setForm(f => ({ ...f, profileImage: data.url }));
+            setInitialForm(f => ({ ...f, profileImage: data.url }));
+            setPhotoPreview(data.url);
+          } else {
+            setError(data.error || "Failed to upload image");
+          }
+        })
+        .catch(() => setError("Failed to upload image"))
+        .finally(() => setPending(false));
     }
   }
 
@@ -97,6 +110,22 @@ export default function ResidentProfilePage() {
     setSuccess("");
     setError("");
     try {
+      // Check if there's already a pending profile update request
+      try {
+        const statusRes = await fetch("/api/resident/profile-update-request/status");
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          if (statusData?.pending) {
+            setError("You already have a pending profile update request. Please wait for admin approval before submitting another.");
+            setPending(false);
+            setEdit(false);
+            return;
+          }
+        }
+      } catch (e) {
+        // If the check fails, continue — server will still validate.
+        console.error("Pending check failed", e);
+      }
       const formData = new FormData();
       formData.append("phone", form.phone);
       formData.append("address", form.address);
@@ -109,7 +138,14 @@ export default function ResidentProfilePage() {
         body: formData,
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to submit update request");
+      if (!res.ok) {
+        if (data?.error === "You already have a pending profile update request.") {
+          setError("You already have a pending profile update request. Please wait for admin approval before submitting another.");
+          setEdit(false);
+          return;
+        }
+        throw new Error(data.error || "Failed to submit update request");
+      }
       setSuccess("Profile update request sent for admin approval.");
       setEdit(false);
     } catch (err) {

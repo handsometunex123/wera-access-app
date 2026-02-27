@@ -76,13 +76,14 @@ export default function SupportTicketsPage() {
     setResponse("");
   }
 
-  async function submitResponse(e: React.FormEvent) {
+  async function submitResponse(e: React.FormEvent, id?: string) {
     e.preventDefault();
-    if (!respondingId) return;
+    const ticketId = id || respondingId;
+    if (!ticketId) return;
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/admin/support-tickets/${respondingId}/respond`, {
+      const res = await fetch(`/api/admin/support-tickets/${ticketId}/respond`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ response }),
@@ -115,7 +116,56 @@ export default function SupportTicketsPage() {
         </div>
         {loading && <div>Loading...</div>}
         {error && <div className="text-red-800 mb-2">{error}</div>}
-        <div className="overflow-x-auto">
+        {/* Mobile: stacked cards */}
+        {!loading && tickets.length > 0 && (
+          <div className="space-y-3 md:hidden">
+            {tickets.map(ticket => (
+              <div key={ticket.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-semibold text-emerald-900">{ticket.user.fullName}</div>
+                    <div className="text-xs text-gray-500">{ticket.user.email}</div>
+                    <div className="mt-2 text-sm text-gray-800 break-words break-all whitespace-normal">{ticket.subject}</div>
+                    <div className="text-xs text-gray-500 mt-1">{new Date(ticket.createdAt).toLocaleString()}</div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <button className="text-emerald-900 underline" onClick={() => setThreadOpenId(threadOpenId === ticket.id ? null : ticket.id)}>View Thread</button>
+                    {ticket.status !== "CLOSED" && <button className="text-red-800 underline" onClick={() => handleClose(ticket.id)}>Close</button>}
+                  </div>
+                </div>
+                {threadOpenId === ticket.id && (
+                  <div className="mt-3">
+                    <div className="mb-2 font-bold text-emerald-900">Threaded Messages</div>
+                    <div className="flex flex-col gap-3 mb-4">
+                      {ticket.messages.length === 0 && <div className="text-gray-700">No messages yet.</div>}
+                      {ticket.messages.map(msg => (
+                        <div key={msg.id} className="rounded-lg border bg-white p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-emerald-900">{msg.user.fullName}</span>
+                            <span className="text-xs text-gray-500">{new Date(msg.createdAt).toLocaleString()}</span>
+                          </div>
+                          <div className="text-gray-900">{msg.message}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {ticket.status !== "CLOSED" && (
+                      <form className="flex flex-col gap-2" onSubmit={e => submitResponse(e, ticket.id)}>
+                        <textarea className="border rounded px-3 py-2 w-full text-gray-900 placeholder-gray-700" placeholder="Type your reply..." value={respondingId === ticket.id ? response : ""} onChange={e => { setRespondingId(ticket.id); setResponse(e.target.value); }} required />
+                        <div className="flex gap-2">
+                          <button type="submit" className="bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-emerald-900 transition" disabled={loading}>{loading ? "Sending..." : "Send Reply"}</button>
+                          <button type="button" className="bg-gray-300 text-gray-900 px-4 py-2 rounded font-semibold" onClick={() => { setRespondingId(null); setResponse(""); }}>Cancel</button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop: table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border text-sm text-gray-900">
             <thead>
               <tr className="bg-gray-200">
@@ -166,10 +216,7 @@ export default function SupportTicketsPage() {
                           ))}
                         </div>
                         {ticket.status !== "CLOSED" && (
-                          <form className="flex flex-col gap-2" onSubmit={e => {
-                            e.preventDefault();
-                            setRespondingId(ticket.id);
-                          }}>
+                          <form className="flex flex-col gap-2" onSubmit={e => submitResponse(e, ticket.id)}>
                             <textarea
                               className="border rounded px-3 py-2 w-full text-gray-900 placeholder-gray-700"
                               placeholder="Type your reply..."

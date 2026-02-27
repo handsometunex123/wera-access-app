@@ -2,10 +2,9 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { sendEmail } from "@/lib/email"; // Import email utility
 import type { Session, SessionStrategy } from "next-auth";
 import type { JWT } from "next-auth/jwt";
-import { randomUUID } from "crypto";
+// Note: sendEmail and randomUUID usage was commented out; removed unused imports to satisfy linter
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma),

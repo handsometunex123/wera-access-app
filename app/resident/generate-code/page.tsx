@@ -185,7 +185,6 @@ export default function ResidentGenerateCodePage() {
     | null
   >(null);
   const [showDialog, setShowDialog] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({ });
 
@@ -373,21 +372,27 @@ export default function ResidentGenerateCodePage() {
           {form.forWhom === "OTHER" && (
             <div>
               <label className="block font-medium text-gray-900">Number of People</label>
-              <input
-                type="number"
-                min={1}
-                max={10}
-                className="crispy-input w-full"
-                value={form.numPeople === 0 ? "" : form.numPeople}
-                onChange={e => {
-                  const val = e.target.value;
-                  setForm(f => ({
-                    ...f,
-                    numPeople: val === "" ? 0 : Math.max(1, Number(val.replace(/^0+/, "")))
-                  }));
-                }}
-                required
-              />
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, numPeople: Math.max(1, f.numPeople - 1) }))}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-emerald-800 font-bold"
+                  aria-label="Decrease number of people"
+                >
+                  -
+                </button>
+                <div className="px-4 py-2 rounded-lg border border-emerald-100 bg-white text-lg font-medium crispy-input">
+                  {form.numPeople}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, numPeople: Math.min(4, f.numPeople + 1) }))}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-emerald-800 font-bold"
+                  aria-label="Increase number of people"
+                >
+                  +
+                </button>
+              </div>
               {fieldErrors.numPeople && <div className="text-red-600 text-sm mt-1">{fieldErrors.numPeople}</div>}
             </div>
           )}
@@ -401,28 +406,28 @@ export default function ResidentGenerateCodePage() {
           </button>
         </form>
         {showDialog && result && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-3xl shadow-2xl p-4 md:p-6 max-w-md w-full relative flex flex-col items-center animate-fadeIn gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-2">
+            <div className="bg-white rounded-xl shadow-2xl p-3 md:p-6 w-full max-w-sm md:max-w-md relative flex flex-col items-center animate-fadeIn gap-3">
               <button
-                className="absolute top-4 right-5 text-gray-400 hover:text-emerald-700 transition"
+                className="absolute top-3 right-3 text-gray-400 hover:text-emerald-700 transition"
                 onClick={() => setShowDialog(false)}
                 aria-label="Close dialog"
               >
-                <XMarkIcon className="w-8 h-8" />
+                <XMarkIcon className="w-6 h-6" />
               </button>
-              <h2 className="text-lg md:text-xl font-extrabold text-emerald-900 mb-2 text-center tracking-tight">Access Code Generated</h2>
-              <div className="w-48 h-48 mx-auto border-2 border-emerald-100 rounded-2xl bg-white flex items-center justify-center overflow-hidden mb-2">
+              <h2 className="text-lg md:text-xl font-extrabold text-emerald-900 mb-1 md:mb-2 text-center tracking-tight">Access Code Generated</h2>
+              <div className="w-40 h-40 mx-auto border-2 border-emerald-100 rounded-lg bg-white flex items-center justify-center overflow-hidden mb-2">
                 <Image
                   src={result.qr}
                   alt="QR Code"
-                  width={192}
-                  height={192}
+                  width={160}
+                  height={160}
                   className="object-contain"
                   priority
                   unoptimized
                 />
               </div>
-              <div className="text-xl md:text-4xl font-mono font-extrabold text-emerald-800 mb-4 tracking-widest break-all select-all text-center" style={{letterSpacing:'0.15em'}}>{result.code}</div>
+              <div className="text-lg md:text-4xl font-mono font-extrabold text-emerald-800 mb-3 tracking-widest break-all select-all text-center" style={{letterSpacing:'0.12em'}}>{result.code}</div>
 
 
               <div className="flex gap-4 mb-4">

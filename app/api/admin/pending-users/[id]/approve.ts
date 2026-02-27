@@ -21,7 +21,8 @@ export async function POST(req: NextRequest, context: { params: { id: string } }
     }
     // Optionally, add audit logging here
     return NextResponse.json({ success: true, user });
-  } catch (e) {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Failed to approve user" }, { status: 400 });
   }
 }

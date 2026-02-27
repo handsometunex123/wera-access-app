@@ -110,6 +110,8 @@ model AccessCode {
   inviteEnd    DateTime
   usageLimit   Int
   usageCount   Int
+  entryCount   Int     @default(0)
+  exitCount    Int     @default(0)
   usageType    UsageType
   status       CodeStatus
   qrCodeUrl    String?

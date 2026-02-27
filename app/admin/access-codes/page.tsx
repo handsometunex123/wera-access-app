@@ -92,7 +92,32 @@ export default function AdminAccessCodesPage() {
         </div>
         {loading && <div>Loading...</div>}
         {error && <div className="text-red-700 mb-2">{error}</div>}
-        <div className="overflow-x-auto">
+        {/* Mobile cards */}
+        {!loading && codes.length > 0 && (
+          <div className="space-y-3 md:hidden">
+            {codes.map(code => (
+              <div key={code.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-mono text-emerald-900 font-semibold">{code.code}</div>
+                    <div className="text-xs text-gray-500">{code.usageType.replace("_", " ")} • Limit {code.usageLimit}</div>
+                    <div className="mt-2 text-xs text-gray-700">{new Date(code.inviteStart).toLocaleString()} — {new Date(code.inviteEnd).toLocaleString()}</div>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <button className="text-emerald-900 underline" onClick={() => handleView(code.id)}>View</button>
+                    {code.status === "ACTIVE" && <button className="text-red-700 underline" onClick={() => handleRevoke(code.id)}>Revoke</button>}
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <span className={`${["USED","EXPIRED","REVOKED"].includes(code.status) ? "text-red-700" : "text-emerald-900"}`}>{code.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border text-sm text-emerald-900">
             <thead>
               <tr className="bg-emerald-100 text-emerald-900">
@@ -141,22 +166,20 @@ export default function AdminAccessCodesPage() {
         {/* Modal for code details */}
         {modalCode && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-2xl shadow-lg p-8 max-w-lg w-full relative">
-              <button className="absolute top-2 right-4 text-2xl text-emerald-900" onClick={() => setModalCode(null)}>&times;</button>
-              <h2 className="text-xl font-bold text-emerald-900 mb-4">Access Code Details</h2>
-              <div className="mb-4 flex flex-col items-center">
-                <QRCodeSVG value={modalCode.code} size={128} />
-                <div className={`font-mono text-4xl mt-2 ${["USED","EXPIRED","REVOKED"].includes(modalCode.status) ? "text-red-700" : "text-emerald-900"}`}>{modalCode.code}</div>
+            <div className="bg-white rounded-xl shadow-lg p-3 md:p-6 w-full max-w-sm md:max-w-lg relative">
+              <button className="absolute top-3 right-3 text-gray-400 hover:text-emerald-700 transition" onClick={() => setModalCode(null)} aria-label="Close dialog">&times;</button>
+              <h2 className="text-lg md:text-xl font-bold text-emerald-900 mb-2 text-center">Access Code Details</h2>
+              <div className="mb-3 flex flex-col items-center">
+                <QRCodeSVG value={modalCode.code} size={112} />
+                <div className={`font-mono text-2xl md:text-3xl mt-2 ${["USED","EXPIRED","REVOKED"].includes(modalCode.status) ? "text-red-700" : "text-emerald-900"}`}>{modalCode.code}</div>
               </div>
-              <div className="flex flex-col w-full gap-2 text-sm text-emerald-900 items-center text-center">
-                {/* <div><span className="font-semibold">Guest/Luggage:</span> {modalCode.guestName}</div>
-                <div><span className="font-semibold">Purpose:</span> {modalCode.purpose}</div> */}
-                <div><span className="font-semibold">Valid From:</span> {new Date(modalCode.inviteStart).toLocaleString()}</div>
-                <div><span className="font-semibold">Valid To:</span> {new Date(modalCode.inviteEnd).toLocaleString()}</div>
-                <div><span className="font-semibold">Usage Limit:</span> {modalCode.usageLimit}</div>
-                <div><span className="font-semibold">Usage Type:</span> {modalCode.usageType.replace("_", " ")}</div>
-                <div><span className="font-semibold">Status:</span> {modalCode.status}</div>
-                <div><span className="font-semibold">Created At:</span> {new Date(modalCode.createdAt).toLocaleString()}</div>
+              <div className="flex flex-col w-full gap-2 text-sm md:text-base text-emerald-900">
+                <div className="flex justify-between"><span className="font-semibold">Valid From:</span> <span>{new Date(modalCode.inviteStart).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="font-semibold">Valid To:</span> <span>{new Date(modalCode.inviteEnd).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="font-semibold">Usage Limit:</span> <span>{modalCode.usageLimit}</span></div>
+                <div className="flex justify-between"><span className="font-semibold">Usage Type:</span> <span>{modalCode.usageType.replace("_", " ")}</span></div>
+                <div className="flex justify-between"><span className="font-semibold">Status:</span> <span>{modalCode.status}</span></div>
+                <div className="flex justify-between"><span className="font-semibold">Created At:</span> <span>{new Date(modalCode.createdAt).toLocaleString()}</span></div>
               </div>
               {modalError && <div className="text-red-700 mt-2">{modalError}</div>}
               {modalLoading && <div className="text-emerald-900 mt-2">Loading...</div>}

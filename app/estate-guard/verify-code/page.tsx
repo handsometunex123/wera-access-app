@@ -25,6 +25,7 @@ export default function VerifyCodePage() {
       const data = await res.json();
       if (res.ok) {
         setMessage(data.message);
+        setCode("");
       } else {
         setError(data.error || "An error occurred.");
       }
@@ -60,13 +61,22 @@ export default function VerifyCodePage() {
             }}
             renderInput={(props) => <input {...props} />}
           />
-          <button
-            type="submit"
-            className="bg-emerald-700 text-white font-bold py-2 rounded-lg shadow hover:bg-emerald-900 transition"
-            disabled={loading || code.length !== 6}
-          >
-            {loading ? "Verifying..." : "Verify Code"}
-          </button>
+          <div className="flex gap-3 justify-center">
+            <button
+              type="submit"
+              className="bg-emerald-700 text-white font-bold py-2 rounded-lg shadow hover:bg-emerald-900 transition px-4"
+              disabled={loading || code.length !== 6}
+            >
+              {loading ? "Verifying..." : "Verify Code"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setCode(""); setMessage(""); setError(""); }}
+              className="bg-white border border-gray-200 text-gray-700 font-semibold py-2 rounded-lg shadow hover:bg-gray-50 transition px-4"
+            >
+              Reset
+            </button>
+          </div>
         </form>
         {message && <p className="text-emerald-700 mt-4 text-center">{message}</p>}
         {error && <p className="text-red-700 mt-4 text-center">{error}</p>}

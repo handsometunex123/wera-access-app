@@ -59,8 +59,8 @@ export default function ProfileUpdateRequestsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6">
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="w-full max-w-full sm:max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-4 md:p-6">
         <h1 className="text-2xl font-bold text-emerald-900 mb-4">Profile Update Requests</h1>
         <div className="flex gap-2 mb-4">
           <input
@@ -72,7 +72,30 @@ export default function ProfileUpdateRequestsPage() {
         </div>
         {loading && <div>Loading...</div>}
         {error && <div className="text-red-800 mb-2">{error}</div>}
-        <div className="overflow-x-auto">
+        {/* Mobile: stacked cards */}
+        {!loading && requests.length > 0 && (
+          <div className="space-y-3 md:hidden">
+            {requests.map(req => (
+              <div key={req.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-emerald-900 truncate">{req.user.fullName}</div>
+                    <div className="text-xs text-gray-500 truncate">{req.user.email}</div>
+                    <div className="mt-2 text-sm text-gray-800 break-words whitespace-normal">{req.updateType}</div>
+                    <div className="text-xs text-gray-500 mt-1">{new Date(req.createdAt).toLocaleString()}</div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-32 sm:w-auto">
+                    <button className="w-full sm:w-auto text-center text-emerald-900 bg-emerald-100/40 px-3 py-1 rounded text-sm" onClick={() => handleAction(req.id, 'approve')}>Approve</button>
+                    <button className="w-full sm:w-auto text-center text-red-700 bg-red-100/40 px-3 py-1 rounded text-sm" onClick={() => handleAction(req.id, 'reject')}>Reject</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full border text-sm text-gray-900">
             <thead>
               <tr className="bg-gray-200">
@@ -86,19 +109,21 @@ export default function ProfileUpdateRequestsPage() {
             <tbody>
               {requests.map(req => (
                 <tr key={req.id} className="border-b">
-                  <td className="p-2 text-gray-900">{req.user.fullName}</td>
-                  <td className="p-2 text-gray-900">{req.user.email}</td>
-                  <td className="p-2 text-gray-900">{req.updateType}</td>
+                  <td className="p-2 text-gray-900 min-w-0">{req.user.fullName}</td>
+                  <td className="p-2 text-gray-900 min-w-0">{req.user.email}</td>
+                  <td className="p-2 text-gray-900 min-w-0">{req.updateType}</td>
                   <td className="p-2 text-gray-900">{new Date(req.createdAt).toLocaleString()}</td>
                   <td className="p-2">
-                    <button
-                      className="text-emerald-900 underline font-semibold mr-2"
-                      onClick={() => handleAction(req.id, "approve")}
-                    >Approve</button>
-                    <button
-                      className="text-red-800 underline font-semibold"
-                      onClick={() => handleAction(req.id, "reject")}
-                    >Reject</button>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        className="px-2 py-1 bg-emerald-100 text-emerald-900 rounded text-sm"
+                        onClick={() => handleAction(req.id, "approve")}
+                      >Approve</button>
+                      <button
+                        className="px-2 py-1 bg-red-100 text-red-800 rounded text-sm"
+                        onClick={() => handleAction(req.id, "reject")}
+                      >Reject</button>
+                    </div>
                   </td>
                 </tr>
               ))}

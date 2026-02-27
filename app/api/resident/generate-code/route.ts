@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
   }
   // Save code to DB
   const now = new Date(inviteTime);
-  const usageLimit = forWhom === "OTHER" ? Number(numPeople) || 1 : 1;
+  let usageLimit = forWhom === "OTHER" ? Number(numPeople) || 1 : 1;
+  if (usageLimit > 4) usageLimit = 4;
   const accessCode = await prisma.accessCode.create({
     data: {
       code,
@@ -42,6 +43,8 @@ export async function POST(req: NextRequest) {
       type: "RESIDENT",
       usageLimit,
       usageCount: 0,
+      entryCount: 0,
+      exitCount: 0,
       createdById: userId,
     },
   });

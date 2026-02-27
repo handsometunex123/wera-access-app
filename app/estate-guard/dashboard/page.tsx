@@ -24,6 +24,8 @@ export default function EstateGuardDashboard() {
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [fullUserDetails, setFullUserDetails] = useState<SessionUser | null>(null); // State for full user details
 
   // Type guard for session user
@@ -64,25 +66,61 @@ export default function EstateGuardDashboard() {
   }
 
   async function verifyCode(code: string) {
+    // First lookup the code to determine whether we should prompt for action
     setVerifying(true);
     setScanResult(null);
     setScanError(null);
     try {
+      const lookup = await fetch(`/api/estate-guard/lookup-code?code=${code}`);
+      if (!lookup.ok) {
+        const err = await lookup.json();
+        setScanError(err.error || "Lookup failed");
+        setVerifying(false);
+        return;
+      }
+      const info = await lookup.json();
+      // If ENTRY_AND_EXIT with usageLimit > 1, ask guard whether this is check-in or check-out
+      if (info.usageType === "ENTRY_AND_EXIT" && info.usageLimit && info.usageLimit > 1) {
+        setPendingCode(code);
+        setActionModalOpen(true);
+        setVerifying(false);
+        return;
+      }
+      // Otherwise perform default verify
       const res = await fetch("/api/estate-guard/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: code, guardId: user.id }),
       });
       const data = await res.json();
-      if (res.ok) {
-        setScanResult(data.message || "Code valid. Guest checked in.");
-      } else {
-        setScanError(data.error || "Verification failed.");
-      }
+      if (res.ok) setScanResult(data.message || "Code valid. Guest checked in.");
+      else setScanError(data.error || "Verification failed.");
+      if (res.ok) setManualCode("");
     } catch {
       setScanError("Network error. Try again.");
     }
     setVerifying(false);
+  }
+
+  async function performActionOnPending(action: "CHECK_IN" | "CHECK_OUT") {
+    if (!pendingCode) return;
+    setActionModalOpen(false);
+    setVerifying(true);
+    try {
+      const res = await fetch("/api/estate-guard/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: pendingCode, action, guardId: user.id }),
+      });
+      const data = await res.json();
+      if (res.ok) setScanResult(data.message);
+      else setScanError(data.error || "Verification failed.");
+      if (res.ok) setManualCode("");
+    } catch {
+      setScanError("Network error. Try again.");
+    }
+    setVerifying(false);
+    setPendingCode(null);
   }
 
   function handleManualSubmit(e: React.FormEvent) {
@@ -148,6 +186,43 @@ export default function EstateGuardDashboard() {
               <div className="text-emerald-700 mt-2 font-medium text-base md:text-lg">
                 Welcome, <span className="font-bold">{fullUserDetails?.fullName || user.name || 'Guard'}</span>
               </div>
+              {/* Feedback Messages */}
+              <div className="min-h-[32px] mt-2">
+                {scanResult && (
+                  <div className="flex items-center gap-2 text-green-700 font-semibold text-lg bg-green-50 border border-green-200 rounded-xl px-4 py-2 shadow-sm">
+                    <svg xmlns='http://www.w3.org/2000/svg' className='w-6 h-6' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
+                      <path strokeLinecap='round' strokeLinejoin='round' d='M5 13l4 4L19 7' />
+                    </svg>
+                    {scanResult}
+                    <button
+                      className="ml-2 text-green-700 hover:text-green-900 focus:outline-none"
+                      onClick={() => setScanResult(null)}
+                      aria-label="Dismiss success message"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {scanError && (
+                  <div className="flex items-center gap-2 justify-between text-red-700 font-semibold text-lg bg-red-50 border border-red-200 rounded-xl px-4 py-2 shadow-sm">
+                    <svg xmlns='http://www.w3.org/2000/svg' className='w-6 h-6' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
+                      <path strokeLinecap='round' strokeLinejoin='round' d='M6 18L18 6M6 6l12 12' />
+                    </svg>
+                    {scanError}
+                    <button
+                      className="ml-2 text-red-700 hover:text-red-900 focus:outline-none"
+                      onClick={() => setScanError(null)}
+                      aria-label="Dismiss error message"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
@@ -171,14 +246,28 @@ export default function EstateGuardDashboard() {
                 Scan QR Code
               </button>
               {showScanner && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 transition-opacity">
-                  <div className="bg-white rounded-2xl shadow-2xl border border-emerald-200 p-6 w-full max-w-md flex flex-col items-center relative animate-fade-in">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 transition-opacity px-2">
+                  <div className="bg-white rounded-xl shadow-2xl border border-emerald-200 p-3 md:p-6 w-full max-w-sm md:max-w-md flex flex-col items-center relative animate-fade-in">
                     <div className="mb-2 font-semibold text-emerald-700 text-center">Scan the guest&apos;s QR code</div>
                     <QrScanner
                       onScan={handleQrScan}
                       onError={handleQrError}
                       onCancel={() => setShowScanner(false)}
                     />
+                  </div>
+                </div>
+              )}
+              {/* Action modal for check-in / check-out choice */}
+              {actionModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                  <div className="fixed inset-0 bg-black/40" onClick={() => setActionModalOpen(false)} />
+                  <div className="bg-white rounded-xl shadow-xl p-6 z-10 w-11/12 max-w-sm">
+                    <h3 className="text-lg font-semibold text-emerald-900">Select action</h3>
+                    <p className="text-sm text-gray-600 mt-2">Is this a check-in or a check-out?</p>
+                    <div className="mt-4 flex gap-4">
+                      <button className="flex-1 bg-emerald-600 text-white py-2 rounded-lg" onClick={() => performActionOnPending("CHECK_IN")}>Check In</button>
+                      <button className="flex-1 bg-gray-100 text-emerald-800 py-2 rounded-lg" onClick={() => performActionOnPending("CHECK_OUT")}>Check Out</button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -221,61 +310,33 @@ export default function EstateGuardDashboard() {
                     renderInput={(props) => <input {...props} />}
                   />
                 </div>
-                <button
-                  type="submit"
-                  className="bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-0.5 px-6 sm:px-8 rounded-xl shadow transition text-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 w-full max-w-xs"
-                  disabled={verifying || manualCode.length !== 6}
-                >
-                  {verifying ? (
-                    <span className="flex items-center gap-2 justify-center">
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                      </svg>
-                      Verifying...
-                    </span>
-                  ) : "Verify"}
-                </button>
+                <div className="flex gap-3 w-full max-w-xs">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-0.5 px-6 sm:px-8 rounded-xl shadow transition text-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
+                    disabled={verifying || manualCode.length !== 6}
+                  >
+                    {verifying ? (
+                      <span className="flex items-center gap-2 justify-center">
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                        </svg>
+                        Verifying...
+                      </span>
+                    ) : "Verify"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setManualCode(""); setScanResult(null); setScanError(null); }}
+                    className="flex-none bg-white border border-gray-200 text-gray-700 font-semibold py-0.5 px-6 sm:px-4 rounded-xl shadow hover:bg-gray-50 transition"
+                  >
+                    Reset
+                  </button>
+                </div>
               </form>
             </div>
-          </div>
-          {/* Feedback Messages */}
-          <div className="min-h-[32px] mt-2">
-            {scanResult && (
-              <div className="flex items-center gap-2 text-green-700 font-semibold text-lg bg-green-50 border border-green-200 rounded-xl px-4 py-2 shadow-sm">
-                <svg xmlns='http://www.w3.org/2000/svg' className='w-6 h-6' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
-                  <path strokeLinecap='round' strokeLinejoin='round' d='M5 13l4 4L19 7' />
-                </svg>
-                {scanResult}
-                <button
-                  className="ml-2 text-green-700 hover:text-green-900 focus:outline-none"
-                  onClick={() => setScanResult(null)}
-                  aria-label="Dismiss success message"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
-            {scanError && (
-              <div className="flex items-center gap-2 justify-between text-red-700 font-semibold text-lg bg-red-50 border border-red-200 rounded-xl px-4 py-2 shadow-sm">
-                <svg xmlns='http://www.w3.org/2000/svg' className='w-6 h-6' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
-                  <path strokeLinecap='round' strokeLinejoin='round' d='M6 18L18 6M6 6l12 12' />
-                </svg>
-                {scanError}
-                <button
-                  className="ml-2 text-red-700 hover:text-red-900 focus:outline-none"
-                  onClick={() => setScanError(null)}
-                  aria-label="Dismiss error message"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </div>
+          </div>          
           {/* Link to Scan Logs Page */}
           <div className="mt-6 flex justify-center">
             <Link href="/estate-guard/scan-logs" className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-semibold py-2.5 px-8 rounded-xl shadow border border-emerald-200 transition text-lg flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2">
