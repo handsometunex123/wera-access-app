@@ -71,6 +71,21 @@ export async function POST(req: NextRequest) {
         status: "PENDING",
       },
     });
+
+    // Notify the resident that a new payment request was created
+    try {
+      const amountLabel = typeof request.amount === "number" ? request.amount.toFixed(2) : String(request.amount);
+      const detailsSnippet = request.details ? ` - ${request.details}` : "";
+      await prisma.notification.create({
+        data: {
+          userId,
+          message: `A new payment request of ₦${amountLabel} has been created for you by the estate admin${detailsSnippet}.`,
+        },
+      });
+    } catch (notifyError) {
+      console.error("Failed to notify resident about new payment request", notifyError);
+    }
+
     return NextResponse.json({ success: true, request });
   } catch {
     return NextResponse.json({ error: "Failed to create payment request" }, { status: 400 });

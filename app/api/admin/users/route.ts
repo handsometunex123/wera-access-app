@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/getServerSession";
+import { Role } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,13 +18,10 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(searchParams.get("pageSize") || "20", 10);
     const skip = (page - 1) * pageSize;
 
-    // Only show approved residents by default
     const where = {
-      OR: [
-        { role: { equals: "MAIN_RESIDENT" as const } },
-        { role: { equals: "DEPENDANT" as const } }
-      ],
-      status: { equals: "APPROVED" as const }
+      role: {
+        in: [Role.MAIN_RESIDENT, Role.DEPENDANT, Role.ESTATE_GUARD, Role.ADMIN],
+      },
     };
     const [usersRaw, total] = await Promise.all([
       prisma.user.findMany({
@@ -43,9 +41,9 @@ export async function GET(request: NextRequest) {
         const activeToken = await prisma.passwordResetToken.findFirst({
           where: { userId: user.id, expiresAt: { gt: now } },
         });
-        return { ...userObj, awaitingSetup: !!activeToken };
+        return { ...userObj, awaitingSetup: !!activeToken, rejectionReason: user.rejectionReason ?? null };
       }
-      return userObj;
+      return { ...userObj, rejectionReason: user.rejectionReason ?? null };
     }));
 
     return NextResponse.json({ users, total, page, pageSize });

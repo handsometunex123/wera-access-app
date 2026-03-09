@@ -34,6 +34,7 @@ export async function GET() {
     createdAt: scan.createdAt,
     guard: scan.guard ? { id: scan.guard.id, fullName: scan.guard.fullName } : null,
     code: scan.code?.code || null,
+    codeType: scan.code?.type || null,
     generatedBy: scan.code?.createdBy
       ? {
           id: scan.code.createdBy.id,
@@ -47,5 +48,4 @@ export async function GET() {
       : null,
   }));
   return NextResponse.json({ stats: mappedScans });
-  return NextResponse.json({ stats: scans });
 }

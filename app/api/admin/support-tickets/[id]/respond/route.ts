@@ -51,16 +51,22 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         messages: { include: { user: true }, orderBy: { createdAt: "asc" } }
       }
     });
-    // Notify admins about this response
+
+    // Notify the resident that an admin has responded to their support ticket
     try {
-      const actor = session.user?.email || session.user?.name || 'admin';
-      const note = `${actor} responded to support ticket ${id}`;
-      const admins = await prisma.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });
-      if (admins.length) {
-        await prisma.notification.createMany({ data: admins.map(a => ({ userId: a.id, message: note })), skipDuplicates: true });
+      if (ticket?.user?.id) {
+        const actor = session.user?.email || session.user?.name || "Estate admin";
+        const subjectLabel = ticket.subject ? `"${ticket.subject}"` : `#${ticket.id}`;
+        const note = `${actor} responded to your support ticket ${subjectLabel}.`;
+        await prisma.notification.create({
+          data: {
+            userId: ticket.user.id,
+            message: note,
+          },
+        });
       }
     } catch (err) {
-      console.error('Failed to notify admins about support ticket response', err);
+      console.error("Failed to notify resident about support ticket response", err);
     }
     return NextResponse.json({ success: true, ticket });
   } catch (err) {

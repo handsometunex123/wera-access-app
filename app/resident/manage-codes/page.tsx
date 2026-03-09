@@ -1,8 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
 import Image from "next/image";
 import { ArrowDownTrayIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { KeyIcon } from "@heroicons/react/24/outline";
 import { toast } from "react-hot-toast";
 
 interface AccessCode {
@@ -20,14 +21,16 @@ interface AccessCode {
   createdAt: string;
 }
 
+const STATUS_ORDER = ["ACTIVE", "USED", "EXPIRED", "REVOKED", "CHECKED_OUT"] as const;
+
 export default function ResidentManageCodesPage() {
-  const router = useRouter();
   const [codes, setCodes] = useState<AccessCode[]>([]);
   const [adminCodes, setAdminCodes] = useState<AccessCode[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [detailsCode, setDetailsCode] = useState<AccessCode | null>(null);
   const [activeTab, setActiveTab] = useState<"RESIDENT" | "ADMIN">("RESIDENT");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | string>("ALL");
 
   useEffect(() => {
     const fetchCodes = async () => {
@@ -53,143 +56,148 @@ export default function ResidentManageCodesPage() {
     fetchCodes();
   }, []);
 
+  const currentList = activeTab === "ADMIN" ? adminCodes : codes;
+  const filteredList = statusFilter === "ALL" ? currentList : currentList.filter((code) => code.status === statusFilter);
+  const totalCount = currentList.length;
+  const statusCounts = STATUS_ORDER.map((status) => [status, currentList.filter((code) => code.status === status).length] as const);
+
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gray-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6">
-        <button
-          className="mb-3 flex items-center gap-2 text-emerald-700 hover:text-emerald-900 font-semibold text-sm focus:outline-none"
-          onClick={() => router.back()}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-          Back
-        </button>
-        <h1 className="text-xl font-bold text-emerald-900 mb-4 text-center">Manage Access Codes</h1>
+    <div className="w-full max-w-4xl mx-auto space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between">
+        <ResidentBackToDashboard />
+        <p className="hidden text-[11px] text-emerald-700 md:inline">Review, share or revoke your access codes.</p>
+      </div>
+      <div className="w-full rounded-2xl border border-emerald-100 bg-white/95 shadow-sm p-4 md:p-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+              <KeyIcon className="h-5 w-5" />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-lg md:text-xl font-semibold text-emerald-950 tracking-tight">Manage access codes</h1>
+              <p className="text-[11px] text-emerald-700">Switch between your resident codes and any admin-issued codes.</p>
+            </div>
+          </div>
+          <div className="flex justify-start sm:justify-end">
+            <div className="flex rounded-full bg-slate-100 overflow-hidden border border-emerald-100 p-0.5">
+              <button
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition focus:outline-none ${
+                  activeTab === "RESIDENT"
+                    ? "bg-white text-emerald-900 shadow-sm"
+                    : "text-slate-500 hover:text-emerald-800"
+                }`}
+                onClick={() => {
+                  setActiveTab("RESIDENT");
+                  setStatusFilter("ALL");
+                }}
+                aria-label="Resident Codes Tab"
+              >
+                Resident codes
+              </button>
+              <button
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition focus:outline-none ${
+                  activeTab === "ADMIN"
+                    ? "bg-white text-emerald-900 shadow-sm"
+                    : "text-slate-500 hover:text-emerald-800"
+                }`}
+                onClick={() => {
+                  setActiveTab("ADMIN");
+                  setStatusFilter("ALL");
+                }}
+                aria-label="Admin Codes Tab"
+              >
+                Admin codes
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setStatusFilter("ALL")}
+            className={
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition " +
+              (statusFilter === "ALL"
+                ? "border-emerald-300 bg-emerald-700 text-emerald-50"
+                : "border-emerald-100 bg-emerald-50 text-emerald-900 hover:bg-emerald-100")
+            }
+          >
+            <span className="text-[10px] uppercase tracking-wide">All</span>
+            <span className={"h-1 w-1 rounded-full " + (statusFilter === "ALL" ? "bg-emerald-100" : "bg-emerald-400")} />
+            <span>{totalCount}</span>
+          </button>
+          {statusCounts.map(([status, count]) => (
+            <button
+              type="button"
+              key={status}
+              onClick={() => setStatusFilter((prev) => (prev === status ? "ALL" : status))}
+              className={
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition " +
+                (statusFilter === status
+                  ? "border-emerald-300 bg-emerald-700 text-emerald-50"
+                  : "border-emerald-100 bg-emerald-50 text-emerald-900 hover:bg-emerald-100")
+              }
+            >
+              <span className="text-[10px] uppercase tracking-wide">{status}</span>
+              <span className={"h-1 w-1 rounded-full " + (statusFilter === status ? "bg-emerald-100" : "bg-emerald-400")} />
+              <span>{count}</span>
+            </button>
+          ))}
+        </div>
         {loading ? (
           <div className="text-center text-emerald-700">Loading...</div>
         ) : error ? (
           <div className="text-center text-red-700">{error}</div>
         ) : (
           <>
-            <div className="mb-6 flex justify-center">
-              <div className="flex rounded-xl bg-gray-100 overflow-hidden border border-gray-200">
-                <button
-                  className={`px-6 py-2 font-semibold text-base transition focus:outline-none ${activeTab === "RESIDENT" ? "bg-white text-emerald-900 border-b-2 border-emerald-600" : "text-gray-500"}`}
-                  onClick={() => setActiveTab("RESIDENT")}
-                  aria-label="Resident Codes Tab"
-                >
-                  Resident Codes
-                </button>
-                <button
-                  className={`px-6 py-2 font-semibold text-base transition focus:outline-none ${activeTab === "ADMIN" ? "bg-white text-emerald-900 border-b-2 border-emerald-600" : "text-gray-500"}`}
-                  onClick={() => setActiveTab("ADMIN")}
-                  aria-label="Admin Codes Tab"
-                >
-                  Admin Codes
-                </button>
+            {filteredList.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/40 px-4 py-6 text-center text-[11px] text-emerald-800">
+                {statusFilter === "ALL" ? "No codes found in this view." : "No codes match this status in this view."}
               </div>
-            </div>
-            {activeTab === "ADMIN" ? (
-              adminCodes.length === 0 ? (
-                <div className="text-center text-gray-500">No admin codes found.</div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {adminCodes.map(code => (
-                    <div key={code.id} className="border rounded-lg p-4 flex flex-col gap-2 bg-gray-50">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-lg tracking-widest text-emerald-800">{code.code}</span>
-                        <span
-                          className={`text-xs font-bold rounded px-2 py-1 ${
-                            code.status === "ACTIVE"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : code.status === "USED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-gray-200 text-gray-500"
-                          }`}
-                        >
-                          {code.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-2">
-                        <button
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-semibold shadow text-xs"
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(code.code);
-                            toast.success("Code copied to clipboard!");
-                          }}
-                        >
-                          <ArrowDownTrayIcon className="w-4 h-4" /> Copy
-                        </button>
-                        {code.status === "ACTIVE" && (
-                          <button
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-900 font-semibold shadow text-xs"
-                            onClick={async () => {
-                              try {
-                                const res = await fetch(`/api/resident/manage-codes`, {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ id: code.id }),
-                                });
-                                if (res.ok) {
-                                  toast.success("Code revoked successfully!");
-                                  setCodes((prev) => prev.filter((c) => c.id !== code.id));
-                                } else {
-                                  toast.error("Failed to revoke code. Please try again.");
-                                }
-                              } catch {
-                                toast.error("An error occurred while revoking the code.");
-                              }
-                            }}
-                          >
-                            Revoke
-                          </button>
-                        )}
-                        <button
-                          className="text-xs text-blue-700 font-semibold hover:underline"
-                          onClick={() => setDetailsCode(code)}
-                        >
-                          View Details
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
             ) : (
-              codes.length === 0 ? (
-                <div className="text-center text-gray-500">No resident codes found.</div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {codes.map(code => (
-                    <div key={code.id} className="border rounded-lg p-4 flex flex-col gap-2 bg-gray-50">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-lg tracking-widest text-emerald-800">{code.code}</span>
-                        <span
-                          className={`text-xs font-bold rounded px-2 py-1 ${
-                            code.status === "ACTIVE"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : code.status === "USED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-gray-200 text-gray-500"
-                          }`}
-                        >
-                          {code.status}
-                        </span>
+              <div className="flex flex-col gap-3">
+                {filteredList.map((code) => (
+                  <div
+                    key={code.id}
+                    className="rounded-2xl border border-emerald-100 bg-white/90 p-3 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[13px] font-semibold text-emerald-950 tracking-widest truncate">
+                            {code.code}
+                          </span>
+                          <span
+                            className={
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium " +
+                              (code.type === "ADMIN"
+                                ? "bg-violet-50 text-violet-700"
+                                : "bg-sky-50 text-sky-700")
+                            }
+                          >
+                            {code.type === "ADMIN" ? "Admin" : "Resident"}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-[11px] text-emerald-700">
+                          {code.usageType.replace("_", " ")} • Limit {code.usageLimit} • Used {code.usageCount}
+                        </div>
+                        <div className="mt-1 text-[11px] text-emerald-800">
+                          {new Date(code.inviteStart).toLocaleString()} — {new Date(code.inviteEnd).toLocaleString()}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 mt-2">
+                      <div className="flex flex-col items-end gap-1 text-[11px]">
                         <button
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-semibold shadow text-xs"
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-100"
                           onClick={async () => {
                             await navigator.clipboard.writeText(code.code);
                             toast.success("Code copied to clipboard!");
                           }}
                         >
-                          <ArrowDownTrayIcon className="w-4 h-4" /> Copy
+                          <ArrowDownTrayIcon className="w-3.5 h-3.5" /> Copy
                         </button>
                         {code.status === "ACTIVE" && (
                           <button
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-900 font-semibold shadow text-xs"
+                            className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-semibold text-rose-700 hover:bg-rose-100"
                             onClick={async () => {
                               try {
                                 const res = await fetch(`/api/resident/manage-codes`, {
@@ -199,7 +207,11 @@ export default function ResidentManageCodesPage() {
                                 });
                                 if (res.ok) {
                                   toast.success("Code revoked successfully!");
-                                  setCodes((prev) => prev.filter((c) => c.id !== code.id));
+                                  if (code.type === "ADMIN") {
+                                    setAdminCodes((prev) => prev.filter((c) => c.id !== code.id));
+                                  } else {
+                                    setCodes((prev) => prev.filter((c) => c.id !== code.id));
+                                  }
                                 } else {
                                   toast.error("Failed to revoke code. Please try again.");
                                 }
@@ -212,16 +224,30 @@ export default function ResidentManageCodesPage() {
                           </button>
                         )}
                         <button
-                          className="text-xs text-blue-700 font-semibold hover:underline"
+                          className="text-[10px] font-semibold text-sky-700 hover:underline"
                           onClick={() => setDetailsCode(code)}
                         >
-                          View Details
+                          View details
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )
+                    <div className="mt-2">
+                      <span
+                        className={
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium " +
+                          (["USED", "EXPIRED", "REVOKED"].includes(code.status)
+                            ? "bg-rose-50 text-rose-700"
+                            : code.status === "ACTIVE"
+                            ? "bg-emerald-600 text-emerald-50"
+                            : "bg-slate-100 text-slate-700")
+                        }
+                      >
+                        {code.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </>
         )}

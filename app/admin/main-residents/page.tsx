@@ -7,6 +7,7 @@ interface MainResident {
   fullName: string;
   email: string;
   canGenerateAdminCode: boolean;
+  adminCodeDisabledReason?: string | null;
 }
 
 export default function MainResidentsAdminPage() {
@@ -23,14 +24,21 @@ export default function MainResidentsAdminPage() {
   }, []);
 
   const toggleAdminCode = async (id: string, value: boolean) => {
+    let reason: string | undefined;
+    if (!value) {
+      // Prompt admin for a reason when disabling admin code generation
+      // Uses native prompt to avoid adding extra UI complexity.
+      const input = window.prompt("Why are you disabling admin code generation for this resident?", "");
+      reason = input || undefined;
+    }
     const res = await fetch(`/api/admin/main-residents/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ canGenerateAdminCode: value }),
+      body: JSON.stringify({ canGenerateAdminCode: value, adminCodeDisabledReason: reason }),
     });
     const data = await res.json();
     if (data.success) {
-      setResidents(residents.map(r => r.id === id ? { ...r, canGenerateAdminCode: value } : r));
+      setResidents(residents.map(r => r.id === id ? { ...r, canGenerateAdminCode: value, adminCodeDisabledReason: value ? null : (reason || r.adminCodeDisabledReason || null) } : r));
       toast.success(`Updated rights for ${data.fullName}`);
     } else {
       toast.error(data.error || "Failed to update rights");
@@ -54,6 +62,7 @@ export default function MainResidentsAdminPage() {
                 <th className="p-2 text-left">Name</th>
                 <th className="p-2 text-left">Email</th>
                 <th className="p-2 text-center">Can Generate Admin Code</th>
+                <th className="p-2 text-left">Disabled Reason</th>
               </tr>
             </thead>
             <tbody>
@@ -68,6 +77,9 @@ export default function MainResidentsAdminPage() {
                       onChange={e => toggleAdminCode(r.id, e.target.checked)}
                       className="w-5 h-5 accent-emerald-600"
                     />
+                  </td>
+                  <td className="p-2 text-xs text-gray-600 max-w-xs break-words">
+                    {r.adminCodeDisabledReason || (r.canGenerateAdminCode ? "-" : "No reason provided")}
                   </td>
                 </tr>
               ))}

@@ -17,6 +17,7 @@ export async function GET() {
   if (!session || !user || !user.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  console.log("Admin profile requested for user ID:", user.id);
   const profile = await prisma.user.findUnique({ where: { id: user.id }, select: { id: true, fullName: true, email: true, phone: true, profileImage: true } });
   if (!profile) return NextResponse.json({ error: "Admin not found" }, { status: 404 });
   return NextResponse.json({ profile });

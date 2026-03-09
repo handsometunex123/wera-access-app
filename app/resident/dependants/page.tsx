@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
+import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 
 import { toast } from "react-hot-toast";
@@ -22,7 +23,6 @@ interface Dependant {
 }
 
 export default function DependantsPage() {
-  const router = useRouter();
   // Permission request modal state (must be inside component)
   const [requesting, setRequesting] = useState<PermissionRequest | null>(null);
   const [reason, setReason] = useState("");
@@ -131,24 +131,23 @@ export default function DependantsPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gray-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6">
-        <button
-          className="mb-4 flex items-center gap-2 text-emerald-700 hover:text-emerald-900 font-semibold text-sm focus:outline-none"
-          onClick={() => router.back()}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-          Back
-        </button>
-        <h1 className="text-xl font-bold text-emerald-900 mb-4 text-center">My Dependants</h1>
-        <div className="sticky top-0 z-20 bg-white pb-3">
+    <div className="w-full max-w-4xl mx-auto space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between">
+        <ResidentBackToDashboard />
+        <p className="hidden text-[11px] text-emerald-700 md:inline">Manage access for your family and dependants.</p>
+      </div>
+      <div className="w-full rounded-2xl border border-emerald-100 bg-white/95 shadow-sm p-4 md:p-6">
+        <div className="mb-4 flex flex-col gap-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600">Dependants</p>
+          <h1 className="text-lg md:text-xl font-semibold text-emerald-950 tracking-tight">My dependants</h1>
+          <p className="text-[12px] text-slate-500">Add or remove people who can use the estate app on your behalf.</p>
+        </div>
+        <div className="mb-4">
           <button
-            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2 px-4 rounded shadow transition text-base"
+            className="w-full rounded-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-2.5 px-4 shadow-sm transition text-sm"
             onClick={() => setShowAddModal(true)}
           >
-            + Add Dependant
+            + Add dependant
           </button>
         </div>
         {loading ? (
@@ -158,27 +157,27 @@ export default function DependantsPage() {
         ) : dependants.length === 0 ? (
           <div className="text-center text-gray-500">No dependants found.</div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {dependants.map(dep => (
-              <div key={dep.id} className="border rounded-lg p-4 flex flex-col gap-2 bg-gray-50">
+              <div key={dep.id} className="border border-emerald-100 rounded-xl p-4 flex flex-col gap-2 bg-emerald-50/50">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-emerald-800">{dep.fullName}</span>
                   <span className={`text-xs font-bold rounded px-2 py-1 ${dep.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : dep.status === "PENDING" ? "bg-yellow-100 text-yellow-700" : "bg-gray-200 text-gray-500"}`}>{dep.status}</span>
                 </div>
-                <div className="text-xs text-gray-500">{dep.email} | {dep.phone}</div>
-                {dep.relationship && <div className="text-xs text-gray-400">Relationship: {dep.relationship}</div>}
+                <div className="text-xs text-slate-600">{dep.email} | {dep.phone}</div>
+                {dep.relationship && <div className="text-xs text-slate-500">Relationship: {dep.relationship}</div>}
                 <div className="flex gap-2 mt-2">
                   <button
-                    className="px-3 py-1.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-900 font-semibold shadow text-xs"
+                    className="px-3 py-1.5 rounded-full bg-blue-100 hover:bg-blue-200 text-blue-900 font-semibold shadow text-xs"
+                    onClick={() => handleRequestPermission(dep)}
+                  >
+                    Request code access
+                  </button>
+                  <button
+                    className="px-3 py-1.5 rounded-full bg-red-100 hover:bg-red-200 text-red-900 font-semibold shadow text-xs"
                     onClick={() => removeDependant(dep.id)}
                   >
                     Remove
-                  </button>
-                  <button
-                    className="px-3 py-1.5 rounded-xl bg-blue-100 hover:bg-blue-200 text-blue-900 font-semibold shadow text-xs"
-                    onClick={() => handleRequestPermission(dep)}
-                  >
-                    Request Code Access
                   </button>
                 </div>
               </div>
@@ -200,7 +199,13 @@ export default function DependantsPage() {
                 <div className="flex flex-col items-center gap-2 mb-2">
                   <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-emerald-200 bg-gray-100 flex items-center justify-center">
                     {form.photoPreview ? (
-                      <img src={form.photoPreview} alt="Dependant avatar" className="object-cover w-full h-full" />
+                      <Image
+                        src={form.photoPreview}
+                        alt="Dependant avatar"
+                        fill
+                        sizes="96px"
+                        className="object-cover"
+                      />
                     ) : (
                       <span className="text-gray-400 text-5xl">+</span>
                     )}

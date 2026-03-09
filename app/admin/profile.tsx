@@ -3,30 +3,57 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNotify } from "../../components/useNotify";
 import Image from "next/image";
 
+type ProfileFormState = { fullName: string; phone: string; profileImage: string };
 
+let cachedProfile: ProfileFormState | null = null;
 
 export default function AdminProfilePage() {
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ fullName: "", phone: "", profileImage: "" });
-  const [initialForm, setInitialForm] = useState({ fullName: "", phone: "", profileImage: "" });
+  const [loading, setLoading] = useState(!cachedProfile);
+  const [form, setForm] = useState<ProfileFormState>(
+    cachedProfile ?? { fullName: "", phone: "", profileImage: "" }
+  );
+  const [initialForm, setInitialForm] = useState<ProfileFormState>(
+    cachedProfile ?? { fullName: "", phone: "", profileImage: "" }
+  );
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const notify = useNotify();
 
   useEffect(() => {
+    if (cachedProfile) {
+      setForm(cachedProfile);
+      setInitialForm(cachedProfile);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
     fetch("/api/admin/profile")
-      .then(res => res.json())
-      .then(data => {
-        const loaded = {
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const loaded: ProfileFormState = {
           fullName: data.profile.fullName || "",
           phone: data.profile.phone || "",
-          profileImage: data.profile.profileImage || ""
+          profileImage: data.profile.profileImage || "",
         };
+        cachedProfile = loaded;
         setForm(loaded);
         setInitialForm(loaded);
       })
-      .catch(() => notify("Failed to load profile", "error"))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (cancelled) return;
+        notify("Failed to load profile", "error");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [notify]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -43,7 +70,14 @@ export default function AdminProfilePage() {
       if (!res.ok) notify(data.error || "Failed to update profile", "error");
       else {
         notify("Profile updated successfully", "success");
-        // setProfile(data.profile); // removed unused
+        const updated: ProfileFormState = {
+          fullName: data.profile?.fullName ?? form.fullName,
+          phone: data.profile?.phone ?? form.phone,
+          profileImage: data.profile?.profileImage ?? form.profileImage,
+        };
+        cachedProfile = updated;
+        setForm(updated);
+        setInitialForm(updated);
       }
     } catch {
       notify("Network error", "error");
@@ -95,88 +129,99 @@ export default function AdminProfilePage() {
     form.profileImage !== initialForm.profileImage;
 
   return (
-    <div className="bg-white p-8">
-      <div className="max-w-lg mx-auto bg-white rounded-2xl p-6">
-        <h1 className="text-2xl font-bold text-emerald-900 mb-4">Admin Profile</h1>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="block font-medium mb-1 text-gray-900">Full Name</label>
-            <input className="border rounded px-3 py-2 w-full text-gray-900" value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} required />
-          </div>
-          <div>
-            <label className="block font-medium mb-1 text-gray-900">Phone</label>
-            <input className="border rounded px-3 py-2 w-full text-gray-900" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} required />
-          </div>
-          <div>
-            <label className="block font-medium mb-1 text-gray-900">Profile Image</label>
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="relative group flex flex-col items-center justify-center">
-                <div
-                  className={`h-20 w-20 rounded-full border-2 border-dashed flex items-center justify-center bg-gray-50 transition-all duration-200 ${uploading ? 'opacity-60' : 'hover:border-emerald-700 cursor-pointer'}`}
-                  onClick={() => !uploading && fileInputRef.current?.click()}
-                  tabIndex={0}
-                  role="button"
-                  aria-label="Upload profile image"
-                  style={{ outline: 'none' }}
-                >
-                  {uploading ? (
-                    <svg className="animate-spin h-8 w-8 text-emerald-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                    </svg>
-                  ) : form.profileImage ? (
-                    <Image src={form.profileImage} alt="Profile preview" className="h-20 w-20 rounded-full object-cover" width={80} height={80} />
-                  ) : (
-                    <svg className="h-8 w-8 text-gray-400 group-hover:text-emerald-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                    ref={fileInputRef}
-                    disabled={uploading}
-                  />
-                  {form.profileImage && !uploading && (
-                    <button
-                      type="button"
-                      className="absolute -top-2 -right-2 bg-white border border-gray-300 rounded-full p-1 shadow hover:bg-red-50"
-                      onClick={e => {
-                        e.stopPropagation();
-                        setForm(f => ({ ...f, profileImage: "" }));
-                      }}
-                      aria-label="Remove image"
-                    >
-                      <svg className="h-4 w-4 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                  {/* Success checkmark removed; use toast for feedback */}
-                </div>
+    <form className="flex flex-col gap-3 text-[11px]" onSubmit={handleSubmit}>
+      <div className="flex flex-col gap-1">
+        <label className="text-[11px] font-medium text-emerald-900">Full name</label>
+        <input
+          className="w-full rounded-full border border-emerald-200 bg-white px-3 py-2 text-[12px] text-emerald-900 shadow-sm placeholder:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          value={form.fullName}
+          onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+          required
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-[11px] font-medium text-emerald-900">Phone</label>
+        <input
+          className="w-full rounded-full border border-emerald-200 bg-white px-3 py-2 text-[12px] text-emerald-900 shadow-sm placeholder:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          value={form.phone}
+          onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+          required
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-[11px] font-medium text-emerald-900">Profile image</label>
+        <div className="flex flex-col sm:flex-row items-center gap-4 rounded-xl border border-emerald-100 bg-white p-3">
+          <div className="relative group flex flex-col items-center justify-center">
+            <div
+              className={`h-20 w-20 rounded-full border-2 border-dashed border-emerald-200 flex items-center justify-center bg-emerald-50/40 transition-all duration-200 ${uploading ? 'opacity-60' : 'hover:border-emerald-500 cursor-pointer'}`}
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              tabIndex={0}
+              role="button"
+              aria-label="Upload profile image"
+              style={{ outline: 'none' }}
+            >
+              {uploading ? (
+                <svg className="animate-spin h-8 w-8 text-emerald-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+              ) : form.profileImage ? (
+                <Image src={form.profileImage} alt="Profile preview" className="h-20 w-20 rounded-full object-cover" width={80} height={80} />
+              ) : (
+                <svg className="h-8 w-8 text-emerald-400 group-hover:text-emerald-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+                ref={fileInputRef}
+                disabled={uploading}
+              />
+              {form.profileImage && !uploading && (
                 <button
                   type="button"
-                  className="mt-2 text-xs text-emerald-700 font-semibold hover:underline focus:underline"
-                  onClick={() => !uploading && fileInputRef.current?.click()}
-                  disabled={uploading}
+                  className="absolute -top-2 -right-2 bg-white border border-rose-200 rounded-full p-1 shadow hover:bg-rose-50"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setForm(f => ({ ...f, profileImage: "" }));
+                  }}
+                  aria-label="Remove image"
                 >
-                  {form.profileImage ? "Change Image" : "Upload Image"}
+                  <svg className="h-4 w-4 text-rose-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
-              </div>
-              <div className="flex-1">
-                {/* Upload errors now use toast notifications */}
-                <div className="text-xs text-gray-500 mt-1">JPG, PNG, or GIF. Max 2MB.</div>
-              </div>
+              )}
             </div>
+            <button
+              type="button"
+              className="mt-2 inline-flex items-center justify-center rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100"
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {form.profileImage ? "Change image" : "Upload image"}
+            </button>
           </div>
-          <button type="submit" className="bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-emerald-900 transition" disabled={loading || uploading || !isDirty}>
-            {loading ? "Saving..." : "Save Changes"}
-          </button>
-          {/* All errors and success now use toast notifications */}
-        </form>
+          <div className="flex-1">
+            <div className="text-[10px] text-emerald-700">JPG, PNG, or GIF. Max 2MB.</div>
+          </div>
+        </div>
       </div>
-    </div>
+
+      <div className="mt-1 flex justify-end">
+        <button
+          type="submit"
+          className="inline-flex items-center justify-center rounded-full bg-emerald-700 px-4 py-2 text-[12px] font-semibold text-emerald-50 shadow-sm hover:bg-emerald-800 disabled:opacity-50"
+          disabled={loading || uploading || !isDirty}
+        >
+          {loading ? "Saving..." : "Save changes"}
+        </button>
+      </div>
+    </form>
   );
 }

@@ -3,6 +3,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { signOut } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
+import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
+import { UserCircleIcon } from "@heroicons/react/24/outline";
 
 interface Dependant {
   id: string;
@@ -154,35 +156,34 @@ export default function ResidentProfilePage() {
     setPending(false);
   }
 
-  if (loading) return <div className="p-8">Loading...</div>;
-  if (error) return <div className="p-8 text-red-800">{error}</div>;
+  if (loading) return <div className="p-8 text-[11px] text-emerald-800">Loading profile...</div>;
+  if (error) return <div className="p-8 text-[11px] font-semibold text-red-800">{error}</div>;
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-emerald-100 via-white to-emerald-50 py-10 px-2">
-      <div className="w-full max-w-lg bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 relative border border-emerald-100">
-        {/* Back Button */}
-        <div className="absolute left-6 top-6">
-          <Link href="/resident/dashboard" className="flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-semibold text-sm px-3 py-1 rounded-lg border border-emerald-100 bg-white shadow-sm transition">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
-            Back
-          </Link>
-        </div>
-        {/* Simple Profile Header */}
-        <div className="flex flex-col items-center mb-8 mt-2">
-          <div className="flex items-center gap-2 mb-1 mt-2">
-            <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" stroke="#059669" strokeWidth="2" fill="#fff" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" stroke="#059669" strokeWidth="2"/>
-            </svg>
-            <span className="text-emerald-800 font-semibold text-base">Profile verified</span>
+    <div className="w-full max-w-4xl mx-auto space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between">
+        <ResidentBackToDashboard />
+        <p className="hidden text-[11px] text-emerald-700 md:inline">Review your details and send update requests to admins.</p>
+      </div>
+      <div className="w-full rounded-2xl border border-emerald-100 bg-white/95 shadow-sm p-4 md:p-6 flex flex-col gap-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+              <UserCircleIcon className="h-5 w-5" />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-lg md:text-xl font-semibold text-emerald-950 tracking-tight">Profile</h1>
+              <p className="text-[11px] text-emerald-700">Keep your contact and address information up to date.</p>
+            </div>
           </div>
-          <div className="text-gray-500 text-xs mt-1">Changes to your profile require admin approval.</div>
+          <div className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-800 flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span>Profile verified</span>
+          </div>
         </div>
-        {/* Profile Image */}
-        <div className="flex flex-col items-center gap-3 mb-8 mt-10">
+
+        <div className="flex flex-col items-center gap-3 mb-4 mt-2">
           <div className="relative group">
             <Image
               src={photoPreview || profile.profileImage || "/avatar-placeholder.svg"}
@@ -212,45 +213,52 @@ export default function ResidentProfilePage() {
               </button>
             )}
           </div>
-          <div className="text-2xl font-extrabold text-emerald-900 tracking-tight drop-shadow-sm">{profile.fullName}</div>
-          <div className="text-xs text-gray-400 font-mono">{profile.estateUniqueId}</div>
+            <div className="text-lg md:text-xl font-semibold text-emerald-950 tracking-tight">{profile.fullName}</div>
+            <div className="text-[11px] text-emerald-700 font-mono">{profile.estateUniqueId}</div>
         </div>
-        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-          <div className="mb-2 text-base text-gray-700 flex items-center gap-2">
-            <span className="font-semibold">Email:</span>
-            <span className="text-gray-800">{profile.email}</span>
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="text-[11px] font-medium text-emerald-900 flex items-center gap-2">
+              <span className="text-emerald-700">Email</span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-900 border border-emerald-100">
+                {profile.email}
+              </span>
           </div>
-          <div className="mb-2 text-base text-gray-700 flex items-center gap-2">
-            <span className="font-semibold">Phone:</span>
+            <div className="text-sm text-gray-700 flex flex-col gap-1">
+              <span className="text-[11px] font-medium text-emerald-900">Phone</span>
             {edit ? (
               <input
                 type="tel"
-                className="border border-emerald-200 rounded-lg px-4 py-2 w-full text-gray-900 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition"
+                  className="w-full rounded-full border border-emerald-200 bg-white px-3 py-2 text-[13px] text-emerald-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 value={form.phone}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                 required
                 disabled={pending}
               />
             ) : (
-              <span className="text-gray-800">{profile.phone}</span>
+                <span className="text-[13px] text-emerald-900">{profile.phone}</span>
             )}
           </div>
-          <div className="mb-2 text-base text-gray-700 flex items-center gap-2">
-            <span className="font-semibold">Address:</span>
+            <div className="text-sm text-gray-700 flex flex-col gap-1">
+              <span className="text-[11px] font-medium text-emerald-900">Address</span>
             {edit ? (
               <input
                 type="text"
-                className="border border-emerald-200 rounded-lg px-4 py-2 w-full text-gray-900 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition"
+                  className="w-full rounded-full border border-emerald-200 bg-white px-3 py-2 text-[13px] text-emerald-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                 value={form.address}
                 onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                 required
                 disabled={pending}
               />
             ) : (
-              <span className="text-gray-800">{profile.address}</span>
+                <span className="text-[13px] text-emerald-900">{profile.address}</span>
             )}
           </div>
-          <div className="mb-2 text-base text-gray-700"><span className="font-semibold">Role:</span> {profile.role === "MAIN_RESIDENT" ? "Main Resident" : profile.role === "DEPENDANT" ? "Dependant" : profile.role}</div>
+            <div className="text-[11px] font-medium text-emerald-900">
+              <span className="mr-1">Role:</span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-900 border border-emerald-100">
+                {profile.role === "MAIN_RESIDENT" ? "Main resident" : profile.role === "DEPENDANT" ? "Dependant" : profile.role}
+              </span>
+            </div>
           {profile.role === "MAIN_RESIDENT" && profile.dependants && profile.dependants.length > 0 && (
             <div className="mb-4">
               <div className="font-semibold text-emerald-800 mb-1 flex items-center justify-between">

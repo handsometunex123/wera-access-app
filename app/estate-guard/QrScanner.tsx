@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useRef } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats, Html5QrcodeCameraScanConfig } from "html5-qrcode";
 
 interface QrScannerProps {
   onScan: (code: string) => void;
@@ -92,15 +92,22 @@ React.useEffect(() => {
       await html5Qrcode.start(
         { facingMode: "environment" },
         {
-          fps: 24, // Higher FPS for faster detection
-          qrbox: { width: 180, height: 180 }, // Smaller, focused scan area
+          fps: 30, // Max out practical FPS for quicker detection
+          // Slightly larger scan area so the code is easier to catch
+          qrbox: { width: 260, height: 260 },
           aspectRatio: 1.0,
           videoConstraints: {
             facingMode: "environment",
             width: { ideal: 1280 },
             height: { ideal: 720 }
-          }
-        },
+          },
+          // Only decode QR codes, and use the browser's BarcodeDetector
+          // when supported (much faster in modern Chrome/Edge).
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
+        } as Html5QrcodeCameraScanConfig,
         (decodedText) => {
           if (!isMounted) return;
           onScan(decodedText);

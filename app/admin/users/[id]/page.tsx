@@ -39,14 +39,38 @@ export default function UserDetailsPage({ params }: { params: { id: string } }) 
   const router = useRouter();
 
   useEffect(() => {
-    fetch(`/api/admin/users/${id}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) setError(data.error);
-        else setUser(data.user);
-      })
-      .catch(() => setError("Network error"))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    const loadUser = async () => {
+      await Promise.resolve();
+
+      if (!id || id === "undefined") {
+        if (!cancelled) {
+          setError("Invalid or missing user id.");
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/admin/users/${id}`);
+        const data = await res.json();
+        if (!cancelled) {
+          if (data.error) setError(data.error);
+          else setUser(data.user);
+        }
+      } catch {
+        if (!cancelled) setError("Network error");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void loadUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const [timeline, setTimeline] = useState<{ id: string; action: string; createdAt: string; metadata?: string }[]>([]);
@@ -54,14 +78,38 @@ export default function UserDetailsPage({ params }: { params: { id: string } }) 
   const [timelineError, setTimelineError] = useState("");
 
   useEffect(() => {
-    fetch(`/api/admin/users/${id}/timeline`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) setTimelineError(data.error);
-        else setTimeline(data.logs);
-      })
-      .catch(() => setTimelineError("Network error"))
-      .finally(() => setTimelineLoading(false));
+    let cancelled = false;
+
+    const loadTimeline = async () => {
+      await Promise.resolve();
+
+      if (!id || id === "undefined") {
+        if (!cancelled) {
+          setTimelineError("Invalid or missing user id.");
+          setTimelineLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/admin/users/${id}/timeline`);
+        const data = await res.json();
+        if (!cancelled) {
+          if (data.error) setTimelineError(data.error);
+          else setTimeline(data.logs);
+        }
+      } catch {
+        if (!cancelled) setTimelineError("Network error");
+      } finally {
+        if (!cancelled) setTimelineLoading(false);
+      }
+    };
+
+    void loadTimeline();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) return <div className="p-8">Loading...</div>;

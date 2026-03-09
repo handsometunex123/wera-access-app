@@ -1,353 +1,550 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
-import OtpInput from "react-otp-input";
+
+import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import QrScanner from "../QrScanner";
+import { FaClipboardList, FaKey, FaQrcode, FaUserCircle } from "react-icons/fa";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import QrScanner from "../QrScanner";
+
+type Action = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+};
 
 interface SessionUser {
   id?: string;
   role?: string;
   name?: string | null;
   email?: string | null;
-  image?: string | null;
-  fullName?: string | null; // Added fullName to fix the error
 }
 
+interface AdminCodeDetails {
+  code: string;
+  type: string;
+  qrCodeUrl: string | null;
+  purpose: string | null;
+  itemDetails: string | null;
+  itemImageUrl: string | null;
+  residentName: string;
+  residentAddress: string | null;
+}
 
 export default function EstateGuardDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [showScanner, setShowScanner] = useState(false);
-  const [manualCode, setManualCode] = useState("");
+  const user = (session?.user ?? {}) as SessionUser;
+
+  const [actions, setActions] = useState<Action[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [guardName, setGuardName] = useState<string>("");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [scanCode, setScanCode] = useState("");
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
-  const [actionModalOpen, setActionModalOpen] = useState(false);
-  const [pendingCode, setPendingCode] = useState<string | null>(null);
-  const [fullUserDetails, setFullUserDetails] = useState<SessionUser | null>(null); // State for full user details
-
-  // Type guard for session user
-  const user = useMemo(() => (session?.user ?? {}) as SessionUser, [session?.user]);
+  const [isAdminCode, setIsAdminCode] = useState<boolean | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [adminDetails, setAdminDetails] = useState<AdminCodeDetails | null>(null);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   useEffect(() => {
     if (status === "loading") return;
     if (!session) {
-      signIn(undefined, { url: "/estate-guard/dashboard" });
-    } else if (user.role !== "ESTATE_GUARD") {
+      signIn(undefined, { callbackUrl: "/estate-guard/dashboard" });
+      return;
+    }
+    if (user.role !== "ESTATE_GUARD") {
       router.replace("/auth");
     }
-    console.log("Session user:", user);
-  }, [session, status, router, user]);
+  }, [session, status, router, user.role]);
 
-  // Fetch full user details
   useEffect(() => {
-    async function fetchUserDetails() {
+    async function fetchProfile() {
       if (!user.id) return;
+      setLoading(true);
       try {
         const res = await fetch(`/api/estate-guard/user-details?id=${user.id}`);
         if (res.ok) {
           const data = await res.json();
-          setFullUserDetails(data.user); // Update state with full user details
+          setGuardName(data?.user?.fullName || "Guard");
+          setProfileImage(data?.user?.profileImage || null);
         } else {
-          console.error("Failed to fetch user details");
+          setGuardName(user.name || "Guard");
         }
-      } catch (error) {
-        console.error("Error fetching user details:", error);
+      } catch {
+        setGuardName(user.name || "Guard");
       }
+
+      const baseActions: Action[] = [
+        {
+          href: "/estate-guard/scan-qr",
+          label: "Scan QR",
+          icon: <FaQrcode className="h-6 w-6 text-emerald-700" />,
+        },
+        {
+          href: "/estate-guard/verify-code",
+          label: "Verify Code",
+          icon: <FaKey className="h-6 w-6 text-emerald-700" />,
+        },
+        {
+          href: "/estate-guard/scan-logs",
+          label: "Scan Logs",
+          icon: <FaClipboardList className="h-6 w-6 text-emerald-700" />,
+        },
+        {
+          href: "/estate-guard/profile",
+          label: "Profile",
+          icon: <FaUserCircle className="h-6 w-6 text-emerald-700" />,
+        },
+      ];
+
+      setActions(baseActions);
+      setLoading(false);
     }
 
-    fetchUserDetails();
-  }, [user.id]);
+    if (session && user.role === "ESTATE_GUARD") {
+      void fetchProfile();
+    }
+  }, [session, user.id, user.name, user.role]);
 
-  if (status === "loading" || !session || user.role !== "ESTATE_GUARD") {
-    return <div className="min-h-screen flex items-center justify-center text-emerald-700">Loading...</div>;
+  if (status === "loading") {
+    return <div className="flex min-h-[200px] items-center justify-center text-emerald-700">Loading...</div>;
+  }
+
+  if (!session || user.role !== "ESTATE_GUARD") {
+    return null;
   }
 
   async function verifyCode(code: string) {
-    // First lookup the code to determine whether we should prompt for action
+    if (!code || code.length !== 6) {
+      setScanError("Please enter a 6-digit code.");
+      return;
+    }
     setVerifying(true);
     setScanResult(null);
     setScanError(null);
-    try {
-      const lookup = await fetch(`/api/estate-guard/lookup-code?code=${code}`);
-      if (!lookup.ok) {
-        const err = await lookup.json();
-        setScanError(err.error || "Lookup failed");
-        setVerifying(false);
-        return;
-      }
-      const info = await lookup.json();
-      // If ENTRY_AND_EXIT with usageLimit > 1, ask guard whether this is check-in or check-out
-      if (info.usageType === "ENTRY_AND_EXIT" && info.usageLimit && info.usageLimit > 1) {
-        setPendingCode(code);
-        setActionModalOpen(true);
-        setVerifying(false);
-        return;
-      }
-      // Otherwise perform default verify
-      const res = await fetch("/api/estate-guard/verify-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code, guardId: user.id }),
-      });
-      const data = await res.json();
-      if (res.ok) setScanResult(data.message || "Code valid. Guest checked in.");
-      else setScanError(data.error || "Verification failed.");
-      if (res.ok) setManualCode("");
-    } catch {
-      setScanError("Network error. Try again.");
-    }
-    setVerifying(false);
-  }
+    setIsAdminCode(null);
+    setAdminDetails(null);
+    setShowAdminModal(false);
 
-  async function performActionOnPending(action: "CHECK_IN" | "CHECK_OUT") {
-    if (!pendingCode) return;
-    setActionModalOpen(false);
-    setVerifying(true);
     try {
       const res = await fetch("/api/estate-guard/verify-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: pendingCode, action, guardId: user.id }),
+        body: JSON.stringify({ code }),
       });
       const data = await res.json();
-      if (res.ok) setScanResult(data.message);
-      else setScanError(data.error || "Verification failed.");
-      if (res.ok) setManualCode("");
+      if (res.ok) {
+        setScanResult(data.message || "Code verified successfully.");
+        setIsAdminCode(Boolean(data.isAdminCode));
+        setScanCode("");
+
+        if (data.isAdminCode && data.codeDetails) {
+          setAdminDetails({
+            code: data.codeDetails.code,
+            type: data.codeDetails.type,
+            qrCodeUrl: data.codeDetails.qrCodeUrl ?? null,
+            purpose: data.codeDetails.purpose ?? null,
+            itemDetails: data.codeDetails.itemDetails ?? null,
+            itemImageUrl: data.codeDetails.itemImageUrl ?? null,
+            residentName: data.codeDetails.residentName,
+            residentAddress: data.codeDetails.residentAddress ?? null,
+          });
+          setShowAdminModal(true);
+        }
+      } else {
+        setScanError(data.error || "Verification failed.");
+      }
     } catch {
       setScanError("Network error. Try again.");
+    } finally {
+      setVerifying(false);
     }
-    setVerifying(false);
-    setPendingCode(null);
   }
 
   function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (manualCode.length === 6) {
-      verifyCode(manualCode);
-    } else {
-      setScanError("Please enter a 6-digit code.");
-    }
+    void verifyCode(scanCode.trim());
   }
 
   function handleQrScan(data: string) {
-    let code = null;
-    if (data) {
-      // Try to extract a 6-digit code from the string
-      const match = data.match(/\b\d{6}\b/);
-      if (match) {
-        code = match[0];
-      } else {
-        // Try to parse JSON and extract a code property
-        try {
-          const obj = JSON.parse(data);
-          if (typeof obj === "object" && obj !== null) {
-            if (typeof obj.code === "string" && obj.code.length === 6) {
-              code = obj.code;
-            } else if (typeof obj.codeValue === "string" && obj.codeValue.length === 6) {
-              code = obj.codeValue;
-            }
-          }
-        } catch {}
-      }
+    if (!data) return;
+    let code: string | null = null;
+    const match = data.match(/\b\d{6}\b/);
+    if (match) {
+      code = match[0];
+    } else if (/^\d{6}$/.test(data.trim())) {
+      code = data.trim();
     }
-    if (code) {
-      console.log(`Scanned code: ${code}`);
-      verifyCode(code);
-      setShowScanner(false);
-    } else if (data) {
-      setScanError("Invalid QR code format.");
-      setShowScanner(false);
+
+    if (!code) {
+      setScanError("QR does not contain a valid 6-digit code.");
+      return;
     }
+    setScanCode(code);
+    void verifyCode(code);
   }
 
   function handleQrError() {
     setScanError("QR scan failed. Try again.");
-    setShowScanner(false);
   }
 
+  const describeAction = (label: string): string => {
+    switch (label) {
+      case "Scan QR":
+        return "Open the scanner to read guest QR codes.";
+      case "Verify Code":
+        return "Manually verify a 6-digit access code.";
+      case "Scan Logs":
+        return "Review recent entries, exits and scan history.";
+      case "Profile":
+        return "Review and update your guard profile.";
+      default:
+        return "";
+    }
+  };
+
   return (
-    <div>
-      <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-white to-emerald-50 py-10 px-2 flex flex-col items-center md:pt-28">
-        <div className="w-full max-w-5xl bg-white/80 backdrop-blur-2xl rounded-3xl shadow-2xl px-4 py-10 border border-emerald-100">
-          <div className="flex md:flex-row md:items-center md:justify-between gap-4 mb-10">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-extrabold text-emerald-900 tracking-tight flex items-center gap-3">
-                <span className="inline-block bg-emerald-100 p-2 rounded-xl">
-                  <svg xmlns='http://www.w3.org/2000/svg' className='w-8 h-8 text-emerald-700' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
-                    <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
-                    <path stroke="currentColor" strokeWidth="2" d="M7 7h2v2H7V7zm8 0h2v2h-2V7zm-8 8h2v2H7v-2zm8 0h2v2h-2v-2z" />
-                  </svg>
-                </span>
-                Dashboard
-              </h1>
-              <div className="text-emerald-700 mt-2 font-medium text-base md:text-lg">
-                Welcome, <span className="font-bold">{fullUserDetails?.fullName || user.name || 'Guard'}</span>
+    <div className="w-full max-w-6xl mx-auto space-y-6">
+      <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 lg:gap-6 items-start">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row items-center md:items-stretch gap-4 rounded-2xl border border-emerald-100 bg-white/90 p-4 shadow-sm">
+            <div className="flex items-center gap-4 md:border-r md:border-emerald-50 md:pr-4">
+              <div className="rounded-full p-1 shadow border border-emerald-100 bg-white overflow-hidden w-20 h-20 flex items-center justify-center">
+                {profileImage ? (
+                  <Image
+                    src={profileImage}
+                    alt="Profile"
+                    width={80}
+                    height={80}
+                    className="rounded-full object-cover w-full h-full"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-14 w-14">
+                    <FaUserCircle className="h-14 w-14 text-emerald-700" />
+                  </div>
+                )}
               </div>
-              {/* Feedback Messages */}
-              <div className="min-h-[32px] mt-2">
-                {scanResult && (
-                  <div className="flex items-center gap-2 text-green-700 font-semibold text-lg bg-green-50 border border-green-200 rounded-xl px-4 py-2 shadow-sm">
-                    <svg xmlns='http://www.w3.org/2000/svg' className='w-6 h-6' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
-                      <path strokeLinecap='round' strokeLinejoin='round' d='M5 13l4 4L19 7' />
-                    </svg>
-                    {scanResult}
-                    <button
-                      className="ml-2 text-green-700 hover:text-green-900 focus:outline-none"
-                      onClick={() => setScanResult(null)}
-                      aria-label="Dismiss success message"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-                {scanError && (
-                  <div className="flex items-center gap-2 justify-between text-red-700 font-semibold text-lg bg-red-50 border border-red-200 rounded-xl px-4 py-2 shadow-sm">
-                    <svg xmlns='http://www.w3.org/2000/svg' className='w-6 h-6' fill='none' viewBox='0 0 24 24' stroke='currentColor' strokeWidth={2}>
-                      <path strokeLinecap='round' strokeLinejoin='round' d='M6 18L18 6M6 6l12 12' />
-                    </svg>
-                    {scanError}
-                    <button
-                      className="ml-2 text-red-700 hover:text-red-900 focus:outline-none"
-                      onClick={() => setScanError(null)}
-                      aria-label="Dismiss error message"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
+              <div className="flex flex-col">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Welcome back</p>
+                <h1 className="text-lg md:text-xl font-bold text-emerald-950 tracking-tight">{guardName}</h1>
+                <p className="text-[12px] text-emerald-700 mt-1">
+                  Your quick snapshot of gate activity, scans and checks.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Inline scan & verify tools */}
+          <section className="rounded-2xl border border-emerald-100 bg-white/95 p-4 shadow-sm flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600">
+                  Scan & verify
+                </p>
+                <p className="text-xs text-slate-500">
+                  Use your camera or enter a code directly from here.
+                </p>
               </div>
             </div>
 
-          </div>
-
-          {/* Scan/Verify Code Section - Revamped */}
-          <div className="mb-10 flex flex-col md:flex-row gap-10 items-stretch justify-center">
-            {/* QR Scan Section */}
-            <div className="flex-1 flex flex-col items-center justify-center bg-white/90 rounded-2xl shadow-xl border border-emerald-200 p-8 relative overflow-hidden">
-              <div className="absolute -top-8 -right-8 opacity-10 pointer-events-none select-none">
-                <svg width="120" height="120" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="#10B981" strokeWidth="2" fill="none" /><path stroke="#10B981" strokeWidth="2" d="M7 7h2v2H7V7zm8 0h2v2h-2V7zm-8 8h2v2H7v-2zm8 0h2v2h-2v-2z" /></svg>
+            {(scanResult || scanError) && (
+              <div className="rounded-xl border px-3 py-2 text-xs md:text-sm flex items-start gap-2 bg-slate-50">
+                {scanError ? (
+                  <span className="mt-0.5 h-2 w-2 rounded-full bg-red-500" />
+                ) : (
+                  <span className="mt-0.5 h-2 w-2 rounded-full bg-emerald-500" />
+                )}
+                <div className="flex flex-col gap-1 flex-1">
+                  {scanError && <span className="text-red-700 font-medium">{scanError}</span>}
+                  {scanResult && <span className="text-emerald-800 font-medium">{scanResult}</span>}
+                  {scanResult && isAdminCode !== null && (
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border w-max ${
+                        isAdminCode
+                          ? "bg-amber-50 text-amber-800 border-amber-200"
+                          : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      }`}
+                    >
+                      {isAdminCode ? "Admin code" : "Resident code"}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="text-[10px] text-slate-500 hover:text-slate-700"
+                  onClick={() => {
+                    setScanResult(null);
+                    setScanError(null);
+                    setIsAdminCode(null);
+                    setAdminDetails(null);
+                    setShowAdminModal(false);
+                  }}
+                >
+                  Clear
+                </button>
               </div>
-              <button
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-7 rounded-xl shadow flex items-center gap-2 text-lg mb-6 mt-2"
-                onClick={() => setShowScanner(true)}
-                disabled={verifying}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7">
-                  <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <path stroke="currentColor" strokeWidth="2" d="M7 7h2v2H7V7zm8 0h2v2h-2V7zm-8 8h2v2H7v-2zm8 0h2v2h-2v-2z" />
-                </svg>
-                Scan QR Code
-              </button>
-              {showScanner && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 transition-opacity px-2">
-                  <div className="bg-white rounded-xl shadow-2xl border border-emerald-200 p-3 md:p-6 w-full max-w-sm md:max-w-md flex flex-col items-center relative animate-fade-in">
-                    <div className="mb-2 font-semibold text-emerald-700 text-center">Scan the guest&apos;s QR code</div>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 flex flex-col gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                  Scan QR
+                </p>
+                <p className="text-[11px] text-emerald-800/90">
+                  Point your camera at the guest&apos;s QR code. We&apos;ll pick the 6-digit code and verify it.
+                </p>
+                {!showScanner && (
+                  <button
+                    type="button"
+                    className="mt-1 inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700"
+                    onClick={() => {
+                      setScanError(null);
+                      setScanResult(null);
+                      setIsAdminCode(null);
+                      setShowScanner(true);
+                    }}
+                  >
+                    Scan QR Code
+                  </button>
+                )}
+                {showScanner && (
+                  <div className="mt-2 rounded-lg border border-emerald-100 bg-white overflow-hidden">
                     <QrScanner
                       onScan={handleQrScan}
                       onError={handleQrError}
                       onCancel={() => setShowScanner(false)}
                     />
                   </div>
-                </div>
-              )}
-              {/* Action modal for check-in / check-out choice */}
-              {actionModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
-                  <div className="fixed inset-0 bg-black/40" onClick={() => setActionModalOpen(false)} />
-                  <div className="bg-white rounded-xl shadow-xl p-6 z-10 w-11/12 max-w-sm">
-                    <h3 className="text-lg font-semibold text-emerald-900">Select action</h3>
-                    <p className="text-sm text-gray-600 mt-2">Is this a check-in or a check-out?</p>
-                    <div className="mt-4 flex gap-4">
-                      <button className="flex-1 bg-emerald-600 text-white py-2 rounded-lg" onClick={() => performActionOnPending("CHECK_IN")}>Check In</button>
-                      <button className="flex-1 bg-gray-100 text-emerald-800 py-2 rounded-lg" onClick={() => performActionOnPending("CHECK_OUT")}>Check Out</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            {/* Access Code Input Section */}
-            <div className="flex-1 flex flex-col items-center justify-center bg-white/90 rounded-2xl shadow-xl border border-emerald-200 px-4 sm:px-8 md:px-10 py-8 sm:py-12 min-w-[0] w-full max-w-md mx-auto">
-              <div className="flex items-center gap-3 mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <path stroke="currentColor" strokeWidth="2" d="M7 7h2v2H7V7zm8 0h2v2h-2V7zm-8 8h2v2H7v-2zm8 0h2v2h-2v-2z" />
-                </svg>
-                <h2 className="text-2xl font-bold text-emerald-800">Enter Access Code</h2>
+                )}
               </div>
-              <div className="mb-6 text-emerald-700 text-base text-center font-medium">Enter the 6-digit access code provided to the guest.</div>
-              <form onSubmit={handleManualSubmit} className="flex flex-col items-center gap-6 w-full">
-                <div className="flex justify-center w-full mb-2 flex-wrap">
-                  <OtpInput
-                    value={manualCode}
-                    onChange={(code: string) => {
-                      setManualCode(code);
-                      if (code.length === 6) verifyCode(code);
+
+              <div className="rounded-xl border border-emerald-100 bg-slate-50/60 p-3 flex flex-col gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">
+                  Enter code manually
+                </p>
+                <form onSubmit={handleManualSubmit} className="flex flex-col gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={scanCode}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, "");
+                      setScanCode(value);
+                      if (value.length === 6 && !verifying) {
+                        void verifyCode(value);
+                      }
                     }}
-                    numInputs={6}
-                    inputType="number"
-                    shouldAutoFocus
-                    containerStyle={{ display: "flex", gap: window.innerWidth < 400 ? "0.1rem" : "0.4rem", flexWrap: "wrap", width: "100%", justifyContent: "center" }}
-                    inputStyle={{
-                      width: window.innerWidth < 400 ? "2.2rem" : "3.2rem",
-                      height: window.innerWidth < 400 ? "2.6rem" : "3.6rem",
-                      fontSize: window.innerWidth < 400 ? "1.2rem" : "2rem",
-                      borderRadius: "1.2rem",
-                      border: "2px solid #10B981",
-                      color: "#065F46",
-                      background: "#F0FDF4",
-                      textAlign: "center",
-                      fontWeight: "bold",
-                      outline: "none",
-                      boxShadow: "0 2px 12px #10B98122"
-                    }}
-                    renderInput={(props) => <input {...props} />}
+                    className="w-full rounded-full border border-emerald-200 bg-white px-3 py-2 text-sm text-emerald-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 font-mono tracking-[0.3em] text-center"
+                    placeholder="••••••"
                   />
-                </div>
-                <div className="flex gap-3 w-full max-w-xs">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-0.5 px-6 sm:px-8 rounded-xl shadow transition text-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
-                    disabled={verifying || manualCode.length !== 6}
-                  >
-                    {verifying ? (
-                      <span className="flex items-center gap-2 justify-center">
-                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                        </svg>
-                        Verifying...
-                      </span>
-                    ) : "Verify"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setManualCode(""); setScanResult(null); setScanError(null); }}
-                    className="flex-none bg-white border border-gray-200 text-gray-700 font-semibold py-0.5 px-6 sm:px-4 rounded-xl shadow hover:bg-gray-50 transition"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </form>
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="flex-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={verifying || scanCode.length !== 6}
+                    >
+                      {verifying ? "Verifying..." : "Verify"}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      onClick={() => {
+                        setScanCode("");
+                        setScanResult(null);
+                        setScanError(null);
+                        setIsAdminCode(null);
+                        setAdminDetails(null);
+                        setShowAdminModal(false);
+                      }}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </div>          
-          {/* Link to Scan Logs Page */}
-          <div className="mt-6 flex justify-center">
-            <Link href="/estate-guard/scan-logs" className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-semibold py-2.5 px-8 rounded-xl shadow border border-emerald-200 transition text-lg flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 17l4 4 4-4m-4-5v9" />
-              </svg>
-              View Scan Logs
-            </Link>
+          </section>
+
+          {loading ? (
+            <div className="rounded-2xl border border-emerald-100 bg-white/80 p-4 text-center text-emerald-700 shadow-sm">
+              Loading your guard tools...
+            </div>
+          ) : (
+            <section className="rounded-2xl border border-emerald-100 bg-white/95 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600">Quick actions</p>
+                  <p className="text-xs text-slate-500">Jump straight into the tools you use most.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {actions.map((action) => (
+                  <Link
+                    key={action.href}
+                    href={action.href}
+                    className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2.5 text-sm text-emerald-950 shadow-sm hover:bg-emerald-50 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm">
+                      {action.icon}
+                    </span>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate font-semibold">{action.label}</span>
+                      {describeAction(action.label) && (
+                        <span className="truncate text-[11px] text-emerald-800/80">
+                          {describeAction(action.label)}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        <aside className="space-y-3">
+          <div className="rounded-2xl border border-emerald-100 bg-white/90 p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600 mb-2">Shortcuts</p>
+            <div className="flex flex-col gap-2 text-sm">
+              <Link
+                href="/estate-guard/scan-qr"
+                className="inline-flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100"
+              >
+                <span>Open QR scanner</span>
+                <FaQrcode className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/estate-guard/verify-code"
+                className="inline-flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100"
+              >
+                <span>Verify access code</span>
+                <FaKey className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/estate-guard/scan-logs"
+                className="inline-flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100"
+              >
+                <span>View scan logs</span>
+                <FaClipboardList className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/estate-guard/profile"
+                className="inline-flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100"
+              >
+                <span>View your profile</span>
+                <FaUserCircle className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <div className="mt-2 text-[11px] text-slate-400 text-center">
+        Estate Guard Console &copy; {new Date().getFullYear()}
+      </div>
+
+      {showAdminModal && adminDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-emerald-100 bg-white p-4 md:p-5 shadow-xl">
+            <button
+              type="button"
+              className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 text-sm"
+              onClick={() => setShowAdminModal(false)}
+            >
+              
+            </button>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+                  ADM
+                </div>
+                <div className="flex flex-col">
+                  <p className="text-sm font-semibold text-emerald-950">Admin code details</p>
+                  <p className="text-[11px] text-slate-500">Review what this admin code allows and who raised it.</p>
+                </div>
+              </div>
+              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200">
+                Admin code
+              </span>
+            </div>
+
+            {adminDetails.itemImageUrl && (
+              <div className="mb-3 flex items-center justify-center">
+                <div className="relative h-40 w-full max-w-xs overflow-hidden rounded-xl border border-emerald-100 bg-emerald-50/40">
+                  <Image src={adminDetails.itemImageUrl} alt="Admin item" fill className="object-cover" />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500">Code</span>
+                <span className="rounded-full bg-slate-900 px-3 py-1 font-mono text-[11px] font-semibold text-emerald-50">
+                  {adminDetails.code}
+                </span>
+              </div>
+              {adminDetails.purpose && (
+                <div>
+                  <p className="text-slate-500 mb-0.5">Purpose</p>
+                  <p className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-1 text-[11px] text-slate-800">
+                    {adminDetails.purpose}
+                  </p>
+                </div>
+              )}
+              {adminDetails.itemDetails && (
+                <div>
+                  <p className="text-slate-500 mb-0.5">Item details</p>
+                  <p className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-1 text-[11px] text-slate-800 whitespace-pre-line">
+                    {adminDetails.itemDetails}
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 mt-1">
+                <div>
+                  <p className="text-slate-500 mb-0.5">Resident</p>
+                  <p className="rounded-xl border border-emerald-50 bg-emerald-50/70 px-2 py-1 text-[11px] font-semibold text-emerald-900">
+                    {adminDetails.residentName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500 mb-0.5">Address</p>
+                  <p className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-1 text-[11px] text-slate-800 line-clamp-2">
+                    {adminDetails.residentAddress || "-"}
+                  </p>
+                </div>
+              </div>
+              {adminDetails.qrCodeUrl && (
+                <div className="mt-1">
+                  <a
+                    href={adminDetails.qrCodeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] font-semibold text-emerald-700 hover:underline"
+                  >
+                    Open QR code image in new tab
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                className="rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700"
+                onClick={() => setShowAdminModal(false)}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

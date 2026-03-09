@@ -35,45 +35,42 @@ export default function AdminInvitePage({ onInviteSent }: { onInviteSent?: () =>
 	};
 
 	return (
-		<div className="bg-gray-50 flex flex-col items-center">
-			<div className="w-full max-w-md p-8 rounded-2xl bg-white flex flex-col items-center">
-				<h1 className="text-2xl font-bold text-emerald-700 mb-4">Invite Resident or Guard</h1>
-				<form className="w-full" onSubmit={handleSubmit}>
-					<div className="mb-4">
-						<label className="block text-emerald-900 font-semibold mb-1" htmlFor="email">Email</label>
-						<input
-							type="email"
-							id="email"
-							className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-200"
-							placeholder="Enter email"
-							value={email}
-							onChange={e => setEmail(e.target.value)}
-							required
-						/>
-					</div>
-					<div className="mb-6">
-						<label className="block text-emerald-900 font-semibold mb-1" htmlFor="role">Role</label>
-						<select
-							id="role"
-							className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-200"
-							value={role}
-							onChange={e => setRole(e.target.value)}
-						>
-							<option value="MAIN_RESIDENT">Main Resident</option>
-							<option value="ESTATE_GUARD">Estate Guard</option>
-						</select>
-					</div>
-					<button
-						type="submit"
-						className="w-full bg-emerald-600 text-white font-semibold py-2 rounded-lg shadow hover:bg-emerald-700 transition"
-						disabled={loading}
-					>
-						{loading ? "Sending..." : "Send Invite"}
-					</button>
-				</form>
-				{error && <div className="mt-4 text-red-600 text-sm">{error}</div>}
-				{success && <div className="mt-4 text-emerald-600 text-sm">{success}</div>}
+		<form className="flex flex-col gap-3 text-[11px]" onSubmit={handleSubmit}>
+			<div className="flex flex-col gap-1">
+				<label className="text-[11px] font-medium text-emerald-900" htmlFor="email">Email</label>
+				<input
+					type="email"
+					id="email"
+					className="w-full rounded-full border border-emerald-200 bg-white px-3 py-2 text-[12px] text-emerald-900 shadow-sm placeholder:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+					placeholder="Enter resident email"
+					value={email}
+					onChange={e => setEmail(e.target.value)}
+					required
+				/>
 			</div>
-		</div>
+			<div className="flex flex-col gap-1">
+				<label className="text-[11px] font-medium text-emerald-900" htmlFor="role">Role</label>
+				<select
+					id="role"
+					className="w-full rounded-full border border-emerald-200 bg-white px-3 py-2 text-[12px] text-emerald-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+					value={role}
+					onChange={e => setRole(e.target.value)}
+				>
+					<option value="MAIN_RESIDENT">Main resident</option>
+					<option value="ESTATE_GUARD">Estate guard</option>
+				</select>
+			</div>
+			<div className="mt-1 flex justify-end">
+				<button
+					type="submit"
+					className="inline-flex items-center justify-center rounded-full bg-emerald-700 px-4 py-2 text-[12px] font-semibold text-emerald-50 shadow-sm hover:bg-emerald-800 disabled:opacity-50"
+					disabled={loading}
+				>
+					{loading ? "Sending..." : "Send invite"}
+				</button>
+			</div>
+			{error && <div className="mt-1 text-[10px] font-medium text-rose-700">{error}</div>}
+			{success && <div className="mt-1 text-[10px] font-medium text-emerald-700">{success}</div>}
+		</form>
 	);
 }

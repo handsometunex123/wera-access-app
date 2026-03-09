@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 // POST: Generate admin access code
 export async function POST(request: Request) {
 	try {
-		const { createdById, purpose, guestName, validityMinutes, usageType, usageLimit } = await request.json();
+		const { createdById, purpose, guestName, validityMinutes, usageType, usageLimit, itemDetails, itemImageUrl } = await request.json();
 		if (!createdById || !purpose || !validityMinutes || !usageType || !usageLimit) {
 			return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
 		}
@@ -39,7 +39,11 @@ export async function POST(request: Request) {
 				exitCount: 0,
 				usageType,
 				status: "ACTIVE",
+				adminApprovalStatus: "APPROVED",
 				qrCodeUrl,
+				purpose,
+				itemDetails: itemDetails || null,
+				itemImageUrl: itemImageUrl || null,
 			},
 		});
 

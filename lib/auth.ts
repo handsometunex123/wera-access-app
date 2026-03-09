@@ -65,10 +65,10 @@ export const authOptions = {
   callbacks: {
     async session({ session, token }: { session: Session; token: JWT; user?: unknown }) {
       if (token && session.user) {
-        (session.user as { id?: string; role?: string; sessionToken?: string }).id = token.id as string;
-        (session.user as { id?: string; role?: string; sessionToken?: string }).role = token.role as string;
+        session.user.id = token.id as string; // Ensure `id` is added to session.user
+        session.user.role = token.role as string; // Ensure `role` is added to session.user
         if (token.sessionToken) {
-          (session.user as { sessionToken?: string }).sessionToken = token.sessionToken as string;
+          session.user.sessionToken = token.sessionToken as string;
         }
       }
       return session;

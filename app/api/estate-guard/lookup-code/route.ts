@@ -14,13 +14,15 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const code = req.nextUrl.searchParams.get("code");
   if (!code) return NextResponse.json({ error: "Missing code" }, { status: 400 });
-  const accessCode = await prisma.accessCode.findFirst({ where: { code } });
+  const accessCode = await prisma.accessCode.findFirst({ where: { code }, include: { createdBy: true } });
   if (!accessCode) return NextResponse.json({ error: "Code not found" }, { status: 404 });
   return NextResponse.json({
     code: accessCode.code,
+    type: accessCode.type,
     usageType: accessCode.usageType,
     usageLimit: accessCode.usageLimit,
     entryCount: accessCode.entryCount,
     exitCount: accessCode.exitCount,
+    createdByName: accessCode.createdBy?.fullName ?? null,
   });
 }

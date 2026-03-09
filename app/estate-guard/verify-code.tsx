@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import Header from "./Header";
+import Image from "next/image";
 
 export default function EstateGuardVerifyCodePage() {
   const [code, setCode] = useState("");
@@ -9,12 +10,21 @@ export default function EstateGuardVerifyCodePage() {
   const [error, setError] = useState("");
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [pendingCode, setPendingCode] = useState<string | null>(null);
+  const [adminDetails, setAdminDetails] = useState<{
+    code: string;
+    residentName: string;
+    residentAddress?: string | null;
+    purpose?: string | null;
+    itemDetails?: string | null;
+    itemImageUrl?: string | null;
+  } | null>(null);
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setResult(null);
     setError("");
+    setAdminDetails(null);
     try {
       const lookup = await fetch(`/api/estate-guard/lookup-code?code=${code}`);
       if (!lookup.ok) {
@@ -37,7 +47,19 @@ export default function EstateGuardVerifyCodePage() {
       });
       const data = await res.json();
       if (!res.ok) setError(data.error || "Invalid code");
-      else setResult(data.message || "Code verified and guest checked in!");
+      else {
+        setResult(data.message || "Code verified and guest checked in!");
+        if (data.isAdminCode && data.codeDetails) {
+          setAdminDetails({
+            code: data.codeDetails.code,
+            residentName: data.codeDetails.residentName,
+            residentAddress: data.codeDetails.residentAddress,
+            purpose: data.codeDetails.purpose,
+            itemDetails: data.codeDetails.itemDetails,
+            itemImageUrl: data.codeDetails.itemImageUrl,
+          });
+        }
+      }
     } catch {
       setError("Network error");
     } finally {
@@ -51,6 +73,7 @@ export default function EstateGuardVerifyCodePage() {
     setLoading(true);
     setResult(null);
     setError("");
+    setAdminDetails(null);
     try {
       const res = await fetch("/api/estate-guard/verify-code", {
         method: "POST",
@@ -59,7 +82,19 @@ export default function EstateGuardVerifyCodePage() {
       });
       const data = await res.json();
       if (!res.ok) setError(data.error || "Invalid code");
-      else setResult(data.message || "Code verified.");
+      else {
+        setResult(data.message || "Code verified.");
+        if (data.isAdminCode && data.codeDetails) {
+          setAdminDetails({
+            code: data.codeDetails.code,
+            residentName: data.codeDetails.residentName,
+            residentAddress: data.codeDetails.residentAddress,
+            purpose: data.codeDetails.purpose,
+            itemDetails: data.codeDetails.itemDetails,
+            itemImageUrl: data.codeDetails.itemImageUrl,
+          });
+        }
+      }
     } catch {
       setError("Network error");
     } finally {
@@ -110,6 +145,37 @@ export default function EstateGuardVerifyCodePage() {
             </div>
           )}
           {result && <div className="mt-4 text-green-700 text-center font-semibold">{result}</div>}
+          {adminDetails && (
+            <div className="mt-4 border border-red-200 bg-red-50 rounded-xl p-4 text-xs text-red-900 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[11px] uppercase tracking-wide">Admin Code</span>
+                <span className="text-[11px] font-mono">{adminDetails.code}</span>
+              </div>
+              <div>
+                <div className="font-semibold">Resident</div>
+                <div>{adminDetails.residentName}</div>
+                {adminDetails.residentAddress && <div className="text-[11px] text-red-800">{adminDetails.residentAddress}</div>}
+              </div>
+              {(adminDetails.purpose || adminDetails.itemDetails) && (
+                <div>
+                  <div className="font-semibold">Purpose / Item</div>
+                  {adminDetails.purpose && <div className="text-[11px]">{adminDetails.purpose}</div>}
+                  {adminDetails.itemDetails && <div className="text-[11px] text-red-800">{adminDetails.itemDetails}</div>}
+                </div>
+              )}
+              {adminDetails.itemImageUrl && (
+                <div className="mt-1 w-full max-h-40 relative">
+                  <Image
+                    src={adminDetails.itemImageUrl}
+                    alt="Admin code item"
+                    fill
+                    sizes="100vw"
+                    className="object-cover rounded-lg"
+                  />
+                </div>
+              )}
+            </div>
+          )}
           {error && <div className="mt-4 text-red-700 text-center font-semibold">{error}</div>}
         </div>
       </div>

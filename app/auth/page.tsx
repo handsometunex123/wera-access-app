@@ -7,6 +7,8 @@ import { useNotify } from "../../components/useNotify"; // Import useNotify hook
 import { signIn } from "next-auth/react";
 import { getSession } from "next-auth/react";
 
+import { useEffect } from "react";
+
 export default function LoginPage() {
   const notify = useNotify(); // Initialize notify hook
   const [email, setEmail] = useState("");
@@ -16,6 +18,25 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
   const [verificationRequired, setVerificationRequired] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
+
+  useEffect(() => {
+    async function checkSession() {
+      const session = await getSession();
+      if (session?.user) {
+        const role = (session.user as { role?: string } | undefined)?.role;
+        if (role === "ADMIN") {
+          window.location.href = "/admin/dashboard";
+        } else if (role === "MAIN_RESIDENT" || role === "DEPENDANT") {
+          window.location.href = "/resident/dashboard";
+        } else if (role === "ESTATE_GUARD") {
+          window.location.href = "/estate-guard/dashboard";
+        } else {
+          window.location.href = "/";
+        }
+      }
+    }
+    checkSession();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,19 +105,19 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-full max-w-md p-8 rounded-2xl shadow-lg bg-white flex flex-col items-center">
-          <FaQrcode className="text-emerald-600 mb-4" size={48} />
-          <h1 className="text-2xl font-bold text-emerald-700 mb-2">Westend Estate Access Control</h1>
-          <p className="text-gray-600 mb-6 text-center">Secure access with unique codes. Generate, scan, and manage entry for residents and guests.</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-emerald-100">
+        <div className="w-full max-w-md p-8 rounded-3xl shadow-xl bg-white/90 flex flex-col items-center border border-emerald-100">
+          <FaQrcode className="text-emerald-600 mb-4 drop-shadow-lg" size={48} />
+          <h1 className="text-3xl font-extrabold text-emerald-800 mb-2 tracking-tight text-center">Westend Estate Access Control</h1>
+          <p className="text-[13px] text-emerald-700 mb-6 text-center">Secure access with unique codes. Generate, scan, and manage entry for residents and guests.</p>
           {verificationRequired ? (
             <form className="w-full" onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-1" htmlFor="verificationCode">Verification Code</label>
+                <label className="block text-emerald-900 font-medium mb-0.5 text-[13px] text-center tracking-tight" htmlFor="verificationCode">Verification Code</label>
                 <input
                   type="text"
                   id="verificationCode"
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-200 text-gray-900"
+                  className="w-full px-3 py-1.5 rounded-full border border-emerald-200 bg-white text-emerald-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:text-emerald-300 placeholder:text-[12px] text-center text-[15px]"
                   placeholder="Enter the code sent to your email"
                   value={verificationCode}
                   onChange={e => setVerificationCode(e.target.value)}
@@ -105,7 +126,7 @@ export default function LoginPage() {
               </div>
               <button
                 type="submit"
-                className="w-full bg-emerald-600 text-white py-2 rounded font-semibold flex items-center justify-center gap-2"
+                className="w-full rounded-full bg-emerald-700 text-white py-2 font-semibold flex items-center justify-center gap-2 shadow-md hover:bg-emerald-800 transition"
                 disabled={loading}
               >
                 {loading ? "Verifying..." : "Verify Code"}
@@ -114,46 +135,46 @@ export default function LoginPage() {
           ) : (
             <form className="w-full" onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label className="block text-gray-700 font-medium mb-1" htmlFor="email">Email</label>
+                <label className="block text-emerald-900 font-medium mb-0.5 text-[13px] text-center tracking-tight" htmlFor="email">Email</label>
                 <div className="relative">
                   <input
                     type="email"
                     id="email"
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-200 text-gray-900"
+                    className="w-full px-3 py-1.5 rounded-full border border-emerald-200 bg-white text-emerald-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:text-emerald-300 placeholder:text-[12px] text-center text-[15px]"
                     placeholder="Enter your email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
                   />
-                  <KeyIcon className="absolute right-3 top-2 text-gray-400" height={20} />
+                  <KeyIcon className="absolute right-3 top-2 text-emerald-300" height={20} />
                 </div>
               </div>
               <div className="mb-6">
-                <label className="block text-gray-700 font-medium mb-1" htmlFor="password">Password</label>
+                <label className="block text-emerald-900 font-medium mb-0.5 text-[13px] text-center tracking-tight" htmlFor="password">Password</label>
                 <div className="relative">
                   <input
                     type="password"
                     id="password"
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-200 text-gray-900"
+                    className="w-full px-3 py-1.5 rounded-full border border-emerald-200 bg-white text-emerald-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:text-emerald-300 placeholder:text-[12px] text-center text-[15px]"
                     placeholder="Enter your password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
                   />
-                  <LockClosedIcon className="absolute right-3 top-2 text-gray-400" height={20} />
+                  <LockClosedIcon className="absolute right-3 top-2 text-emerald-300" height={20} />
                 </div>
               </div>
               <button
                 type="submit"
-                className="w-full bg-emerald-600 text-white py-2 rounded font-semibold flex items-center justify-center gap-2"
+                className="w-full rounded-full bg-emerald-700 text-white py-2 font-semibold flex items-center justify-center gap-2 shadow-md hover:bg-emerald-800 transition"
                 disabled={loading}
               >
                 {loading ? "Logging in..." : "Login"}
               </button>
             </form>
           )}
-          {error && <div className="text-red-600 mt-4">{error}</div>}
-          {success && <div className="text-emerald-600 mt-4">{success}</div>}
+          {error && <div className="text-red-600 mt-4 text-sm font-semibold bg-rose-50 rounded-full px-4 py-2 w-full text-center shadow-sm">{error}</div>}
+          {success && <div className="text-emerald-600 mt-4 text-sm font-semibold bg-emerald-50 rounded-full px-4 py-2 w-full text-center shadow-sm">{success}</div>}
         </div>
       </div>
     </>

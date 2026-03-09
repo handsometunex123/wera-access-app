@@ -1,196 +1,126 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 
-interface ScanLog {
+type ScanStat = {
   id: string;
-  code: string;
   status: string;
-  reason: string;
   createdAt: string;
-  guard?: { id: string; fullName: string } | null;
-  generatedBy?: {
+  code: string | null;
+  codeType: string | null;
+  generatedBy: {
     id: string;
-    fullName: string;
-    email?: string | null;
-    phone?: string | null;
-    estateUniqueId?: string | null;
-    profileImage?: string | null;
-    address?: string | null;
+    fullName: string | null;
+    address: string | null;
   } | null;
-}
+};
 
 export default function ScanLogsPage() {
-  const [scanLogs, setScanLogs] = useState<ScanLog[]>([]);
+  const [logs, setLogs] = useState<ScanStat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState(""); // State for search query
-  const [currentPage, setCurrentPage] = useState(1); // State for current page
-  const [selectedUser, setSelectedUser] = useState<ScanLog['generatedBy'] | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const { data: session } = useSession();
-  interface SessionUser {
-    id?: string;
-    role?: string;
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-  }
-  const user = (session?.user ?? {}) as SessionUser;
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchLogs() {
+    async function loadStats() {
       setLoading(true);
+      setError(null);
       try {
         const res = await fetch("/api/estate-guard/scan-stats");
         const data = await res.json();
-        // Filter logs for the logged-in guard
-        setScanLogs((data.stats || []).filter((log: ScanLog) => log.guard?.id === user.id));
+        if (!res.ok) {
+          setError(data.error || "Unable to load scan logs.");
+          setLogs([]);
+          return;
+        }
+        const all = (data.stats || []) as ScanStat[];
+        setLogs(all.slice(0, 5));
       } catch {
-        setScanLogs([]);
+        setError("Network error while loading scan logs.");
+        setLogs([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
-    if (user.id) fetchLogs();
-  }, [user.id]);
 
-  const filteredLogs = scanLogs.filter((log) =>
-    log.code.toLowerCase().includes(searchQuery.toLowerCase())
-  ); // Filter logs based on search query
-  const itemsPerPage = 10; // Number of items per page
-  const paginatedLogs = filteredLogs.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  ); // Slice logs for current page
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage); // Calculate total pages
-
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
+    void loadStats();
+  }, []);
 
   return (
-    <>
-      <div className="min-h-screen bg-gradient-to-br from-emerald-100 via-white to-emerald-50 py-10 px-2 flex flex-col items-center md:pt-24">
-        <div className="w-full max-w-2xl bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-emerald-100">
-          <h1 className="text-2xl font-extrabold text-emerald-900 mb-6 text-center tracking-tight">Scanned Codes Log</h1>
-          <div className="mb-6">
-            <input
-              type="text"
-              placeholder="Search QR Codes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-emerald-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
-            />
-          </div>
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="text-center text-emerald-700 py-4">Loading...</div>
-            ) : filteredLogs.length === 0 ? (
-              <div className="text-center text-gray-500 py-4">No matching scans found.</div>
-            ) : (
-              <>
-                <table className="min-w-full text-sm border border-emerald-200 rounded-xl shadow-md">
-                  <thead>
-                    <tr className="bg-emerald-100 text-emerald-900">
-                      <th className="px-4 py-3 text-left font-semibold border-b border-emerald-300">Code</th>
-                      <th className="px-4 py-3 text-left font-semibold border-b border-emerald-300">Resident</th>
-                      <th className="px-4 py-3 text-left font-semibold border-b border-emerald-300">Status</th>
-                      <th className="px-4 py-3 text-left font-semibold border-b border-emerald-300">Time</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedLogs.map((scan) => {
-                      function formatDate(dateStr: string) {
-                        const date = new Date(dateStr);
-                        const day = date.getDate();
-                        const daySuffix = (d: number) =>
-                          d > 3 && d < 21 ? "th" : ["th", "st", "nd", "rd", "th"][Math.min(d % 10, 4)];
-                        const month = date.toLocaleString("en-US", { month: "short" });
-                        const year = date.getFullYear();
-                        let hour = date.getHours();
-                        const min = date.getMinutes().toString().padStart(2, "0");
-                        const ampm = hour >= 12 ? "PM" : "AM";
-                        hour = hour % 12;
-                        hour = hour ? hour : 12;
-                        return `${day}${daySuffix(day)} ${month} ${year}, ${hour}:${min} ${ampm}`;
-                      }
-                      return (
-                        <tr
-                          key={scan.id}
-                          className={`${
-                            scan.status === "SUCCESS"
-                              ? "bg-green-50 hover:bg-green-100"
-                              : "bg-red-50 hover:bg-red-100"
-                          } transition-colors`}
-                        >
-                          <td className="px-4 py-3 font-mono border-b border-emerald-300">{scan.code}</td>
-                          <td className="px-4 py-3 border-b border-emerald-300">
-                            {scan.generatedBy ? (
-                              <button
-                                onClick={() => {
-                                  setSelectedUser(scan.generatedBy ?? null);
-                                  setIsModalOpen(true);
-                                }}
-                                className="text-emerald-800 hover:underline"
-                              >
-                                {scan.generatedBy.fullName}
-                              </button>
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                          <td className="px-4 py-3 border-b border-emerald-300">{scan.status}</td>
-                          <td className="px-4 py-3 border-b border-emerald-300">{formatDate(scan.createdAt)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {/* Modal for generatedBy details */}
-                {isModalOpen && selectedUser && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center px-2">
-                    <div className="fixed inset-0 bg-black/40" onClick={() => setIsModalOpen(false)} />
-                    <div className="bg-white rounded-xl shadow-xl p-3 md:p-6 z-10 w-full max-w-sm md:max-w-md">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h2 className="text-xl font-semibold text-emerald-900">{selectedUser.fullName}</h2>
-                          {/* <p className="text-sm text-gray-500">{selectedUser.estateUniqueId || ""}</p> */}
-                        </div>
-                        <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-                      </div>
-                      <div className="mt-4 space-y-2 text-sm text-emerald-800">
-                        {/* <div><span className="font-semibold">Email:</span> {selectedUser.email || '—'}</div> */}
-                        <div><span className="font-semibold">Phone:</span> {selectedUser.phone || '—'}</div>
-                        <div><span className="font-semibold">Address:</span> {selectedUser.address || '—'}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div className="flex justify-between items-center mt-4">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 bg-emerald-200 text-emerald-900 rounded-lg shadow-md disabled:opacity-50"
-                  >
-                    Previous
-                  </button>
-                  <span className="text-emerald-700">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="px-4 py-2 bg-emerald-200 text-emerald-900 rounded-lg shadow-md disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
-              </>
-            )}
+    <div className="w-full max-w-5xl mx-auto">
+      <div className="bg-white/90 backdrop-blur rounded-3xl shadow-2xl p-6 md:p-8 border border-emerald-100">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-emerald-900 tracking-tight">
+              Scan history
+            </h1>
+            <p className="text-xs md:text-sm text-emerald-700 mt-1">
+              Recent codes scanned at the gate, with their residents and addresses.
+            </p>
           </div>
         </div>
+
+        {loading && (
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-6 text-center text-sm text-emerald-700">
+            Loading scan logs...
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-center text-sm font-semibold text-red-700">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && logs.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-emerald-100 bg-emerald-50/40 p-6 text-center text-sm text-emerald-700">
+            No scan logs yet. As you verify codes, they will appear here.
+          </div>
+        )}
+
+        {!loading && !error && logs.length > 0 && (
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3 md:p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                Latest scans
+              </p>
+              <p className="text-[11px] text-slate-500">Showing last {logs.length} of 5</p>
+            </div>
+            <ul className="divide-y divide-emerald-100 rounded-xl border border-emerald-100 bg-white">
+              {logs.map((log) => {
+                const when = new Date(log.createdAt).toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                const residentName = log.generatedBy?.fullName || "–";
+                const address = log.generatedBy?.address || "–";
+
+                return (
+                  <li
+                    key={log.id}
+                    className="px-3 py-2.5 flex flex-col gap-1 hover:bg-emerald-50/60 transition"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 font-mono text-xs md:text-sm font-semibold text-emerald-900 border border-emerald-100">
+                        {log.code || "Unknown"}
+                      </span>
+                      <span className="text-[10px] md:text-[11px] text-slate-500 whitespace-nowrap">
+                        {when}
+                      </span>
+                    </div>
+                    <div className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-2 text-[11px] md:text-xs text-emerald-900">
+                      <span className="font-medium">{residentName}</span>
+                      <span className="md:border-l md:border-emerald-100 md:pl-2 text-emerald-800/80 truncate">
+                        {address}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }

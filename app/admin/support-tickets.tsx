@@ -1,5 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import {
+  ChatBubbleLeftRightIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 
 interface SupportTicket {
   id: string;
@@ -16,6 +22,7 @@ interface SupportTicket {
     id: string;
     message: string;
     createdAt: string;
+    userId: string;
     user: {
       id: string;
       fullName: string;
@@ -34,6 +41,16 @@ export default function SupportTicketsPage() {
   const [response, setResponse] = useState("");
   const [respondingId, setRespondingId] = useState<string | null>(null);
   const [threadOpenId, setThreadOpenId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [now, setNow] = useState<number>(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     fetchTickets();
@@ -71,11 +88,6 @@ export default function SupportTicketsPage() {
       .finally(() => setLoading(false));
   }
 
-  function handleRespond(id: string) {
-    setRespondingId(id);
-    setResponse("");
-  }
-
   async function submitResponse(e: React.FormEvent, id?: string) {
     e.preventDefault();
     const ticketId = id || respondingId;
@@ -102,60 +114,257 @@ export default function SupportTicketsPage() {
     }
   }
 
+  async function saveMessageEdit(ticketId: string, messageId: string) {
+    if (!editingText.trim()) return;
+    setSavingEdit(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/support-tickets/messages/${messageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: editingText }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to edit message");
+      } else if (data.ticket) {
+        setTickets((prev) => prev.map((t) => (t.id === data.ticket.id ? data.ticket : t)));
+        setEditingMessageId(null);
+        setEditingTicketId(null);
+        setEditingText("");
+      }
+    } catch {
+      setError("Network error editing message");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6">
-        <h1 className="text-2xl font-bold text-emerald-900 mb-4">Support Tickets</h1>
-        <div className="flex gap-2 mb-4">
-          <input
-            className="border rounded px-3 py-2 w-full text-gray-900 placeholder-gray-700"
-            placeholder="Search by subject, description, name, email..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
-          />
+    <div className="w-full flex flex-col gap-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+            <ChatBubbleLeftRightIcon className="h-5 w-5" />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-lg font-semibold text-emerald-950 tracking-tight sm:text-xl">Support tickets</h1>
+            <p className="text-[11px] text-emerald-700">
+              Respond to residents and keep a full conversation history.
+            </p>
+          </div>
         </div>
-        {loading && <div>Loading...</div>}
-        {error && <div className="text-red-800 mb-2">{error}</div>}
+        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-900 border border-emerald-100 self-start sm:self-auto">
+          <span className="text-[10px] uppercase tracking-wide text-emerald-700">Total pages</span>
+          <span className="h-1 w-1 rounded-full bg-emerald-400" />
+          <span>{totalPages}</span>
+        </div>
+      </header>
+
+      <section className="rounded-2xl border border-emerald-100 bg-white/80 p-3 shadow-sm sm:p-4">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-emerald-950 tracking-tight">Inbox</h2>
+            <p className="text-[11px] text-emerald-700">
+              Search by subject, description, name or email.
+            </p>
+          </div>
+          <div className="relative w-full sm:max-w-xs transition-all duration-300 ease-out sm:w-64 sm:focus-within:w-80 max-w-full">
+            <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-emerald-500" />
+            <input
+              className="w-full rounded-full border border-emerald-100 bg-white px-7 py-1.5 pr-8 text-[11px] text-emerald-900 shadow-sm placeholder:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              placeholder="Search tickets..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+                className="absolute right-2.5 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                aria-label="Clear search"
+              >
+                <span className="text-[10px] font-bold">×</span>
+              </button>
+            )}
+          </div>
+        </div>
+        {loading && <div className="text-[11px] text-emerald-800">Loading...</div>}
+        {error && <div className="mb-2 text-[11px] font-semibold text-red-700">{error}</div>}
+
         {/* Mobile: stacked cards */}
         {!loading && tickets.length > 0 && (
           <div className="space-y-3 md:hidden">
-            {tickets.map(ticket => (
-              <div key={ticket.id} className="bg-white border rounded-lg p-4 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-semibold text-emerald-900">{ticket.user.fullName}</div>
-                    <div className="text-xs text-gray-500">{ticket.user.email}</div>
-                    <div className="mt-2 text-sm text-gray-800 break-words break-all whitespace-normal">{ticket.subject}</div>
-                    <div className="text-xs text-gray-500 mt-1">{new Date(ticket.createdAt).toLocaleString()}</div>
+            {tickets.map((ticket) => (
+              <div
+                key={ticket.id}
+                className="rounded-2xl border border-emerald-100 bg-white/90 p-3 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-[13px] text-emerald-950 truncate">
+                      {ticket.user.fullName}
+                    </div>
+                    <div className="text-[11px] text-emerald-700 truncate">{ticket.user.email}</div>
+                    <div className="mt-1 text-[11px] text-emerald-900 break-words break-all whitespace-normal">
+                      {ticket.subject}
+                    </div>
+                    <div className="mt-1 text-[10px] text-emerald-600">
+                      {new Date(ticket.createdAt).toLocaleString()}
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <button className="text-emerald-900 underline" onClick={() => setThreadOpenId(threadOpenId === ticket.id ? null : ticket.id)}>View Thread</button>
-                    {ticket.status !== "CLOSED" && <button className="text-red-800 underline" onClick={() => handleClose(ticket.id)}>Close</button>}
+                  <div className="flex flex-col items-end gap-1 text-[11px]">
+                    <button
+                      className="text-sky-700 hover:underline"
+                      onClick={() =>
+                        setThreadOpenId(threadOpenId === ticket.id ? null : ticket.id)
+                      }
+                    >
+                      View thread
+                    </button>
+                    {ticket.status !== "CLOSED" && (
+                      <button
+                        className="text-rose-700 hover:underline"
+                        onClick={() => handleClose(ticket.id)}
+                      >
+                        Close
+                      </button>
+                    )}
                   </div>
                 </div>
                 {threadOpenId === ticket.id && (
-                  <div className="mt-3">
-                    <div className="mb-2 font-bold text-emerald-900">Threaded Messages</div>
-                    <div className="flex flex-col gap-3 mb-4">
-                      {ticket.messages.length === 0 && <div className="text-gray-700">No messages yet.</div>}
-                      {ticket.messages.map(msg => (
-                        <div key={msg.id} className="rounded-lg border bg-white p-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-emerald-900">{msg.user.fullName}</span>
-                            <span className="text-xs text-gray-500">{new Date(msg.createdAt).toLocaleString()}</span>
+                  <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+                    <div className="mb-2 text-[11px] font-semibold text-emerald-900">
+                      Threaded messages
+                    </div>
+                    <div className="mb-4 flex flex-col gap-2">
+                      {ticket.messages.length === 0 && (
+                        <div className="text-[11px] text-emerald-800">No messages yet.</div>
+                      )}
+                      {ticket.messages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={
+                            "flex " + (msg.user.id === ticket.user.id ? "justify-start" : "justify-end")
+                          }
+                        >
+                          <div
+                            className={
+                              "max-w-[80%] rounded-2xl px-3 py-2 text-[11px] " +
+                              (msg.user.id === ticket.user.id
+                                ? "bg-white border border-emerald-100 text-emerald-900"
+                                : "bg-emerald-600 text-emerald-50")
+                            }
+                          >
+                            <div className="mb-0.5 flex items-center justify-between gap-2">
+                              <span className="font-semibold">
+                                {msg.user.id === ticket.user.id ? ticket.user.fullName : "Admin"}
+                              </span>
+                              <span className="text-[10px] opacity-80">
+                                {new Date(msg.createdAt).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            {editingMessageId === msg.id && editingTicketId === ticket.id ? (
+                              <div className="mt-1 flex flex-col gap-1">
+                                <textarea
+                                  className="min-h-[56px] w-full rounded-lg border border-emerald-200 bg-white px-2 py-1 text-[11px] text-emerald-900 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                  value={editingText}
+                                  onChange={(e) => setEditingText(e.target.value)}
+                                />
+                                <div className="flex justify-end gap-2 text-[10px]">
+                                  <button
+                                    type="button"
+                                    className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-800 hover:bg-slate-200"
+                                    onClick={() => {
+                                      setEditingMessageId(null);
+                                      setEditingTicketId(null);
+                                      setEditingText("");
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded-full bg-emerald-700 px-2 py-1 font-semibold text-emerald-50 hover:bg-emerald-800 disabled:opacity-50"
+                                    disabled={savingEdit}
+                                    onClick={() => saveMessageEdit(ticket.id, msg.id)}
+                                  >
+                                    {savingEdit ? "Saving..." : "Save"}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="mt-0.5 whitespace-pre-wrap break-words">
+                                  {msg.message}
+                                </div>
+                                {! (msg.user.id === ticket.user.id) &&
+                                  now - new Date(msg.createdAt).getTime() <= 60_000 && (
+                                    <button
+                                      type="button"
+                                      className="mt-1 text-[10px] font-semibold underline underline-offset-2 opacity-90"
+                                      onClick={() => {
+                                        setEditingMessageId(msg.id);
+                                        setEditingTicketId(ticket.id);
+                                        setEditingText(msg.message);
+                                      }}
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                              </>
+                            )}
                           </div>
-                          <div className="text-gray-900">{msg.message}</div>
                         </div>
                       ))}
                     </div>
                     {ticket.status !== "CLOSED" && (
-                      <form className="flex flex-col gap-2" onSubmit={e => submitResponse(e, ticket.id)}>
-                        <textarea className="border rounded px-3 py-2 w-full text-gray-900 placeholder-gray-700" placeholder="Type your reply..." value={respondingId === ticket.id ? response : ""} onChange={e => { setRespondingId(ticket.id); setResponse(e.target.value); }} required />
+                      <form
+                        className="flex flex-col gap-2"
+                        onSubmit={(e) => submitResponse(e, ticket.id)}
+                      >
+                        <textarea
+                          className="h-20 w-full rounded-lg border border-emerald-200 px-3 py-2 text-[11px] text-emerald-900 placeholder:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          placeholder="Type your reply..."
+                          value={respondingId === ticket.id ? response : ""}
+                          onChange={(e) => {
+                            setRespondingId(ticket.id);
+                            setResponse(e.target.value);
+                          }}
+                          required
+                        />
                         <div className="flex gap-2">
-                          <button type="submit" className="bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-emerald-900 transition" disabled={loading}>{loading ? "Sending..." : "Send Reply"}</button>
-                          <button type="button" className="bg-gray-300 text-gray-900 px-4 py-2 rounded font-semibold" onClick={() => { setRespondingId(null); setResponse(""); }}>Cancel</button>
+                          <button
+                            type="submit"
+                            className="inline-flex items-center rounded-full bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-emerald-50 shadow-sm hover:bg-emerald-800 disabled:opacity-40"
+                            disabled={loading}
+                          >
+                            {loading ? "Sending..." : "Send reply"}
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-semibold text-slate-800 hover:bg-slate-200"
+                            onClick={() => {
+                              setRespondingId(null);
+                              setResponse("");
+                              setThreadOpenId(null);
+                            }}
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </form>
+                    )}
+                    {ticket.status === "CLOSED" && (
+                      <div className="text-[11px] font-semibold text-emerald-800">
+                        Ticket closed.
+                      </div>
                     )}
                   </div>
                 )}
@@ -163,106 +372,253 @@ export default function SupportTicketsPage() {
             ))}
           </div>
         )}
+        {!loading && tickets.length === 0 && (
+          <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/40 px-4 py-6 text-center text-[11px] text-emerald-800">
+            No support tickets.
+          </div>
+        )}
 
-        {/* Desktop: table */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full border text-sm text-gray-900">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="p-2">User</th>
-                <th className="p-2">Email</th>
-                <th className="p-2">Subject</th>
-                <th className="p-2">Status</th>
-                <th className="p-2">Created</th>
-                <th className="p-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickets.map(ticket => (
-                <React.Fragment key={ticket.id}>
-                  <tr className="border-b">
-                    <td className="p-2 text-gray-900">{ticket.user.fullName}</td>
-                    <td className="p-2 text-gray-900">{ticket.user.email}</td>
-                    <td className="p-2 text-gray-900">{ticket.subject}</td>
-                    <td className="p-2 text-gray-900">{ticket.status}</td>
-                    <td className="p-2 text-gray-900">{new Date(ticket.createdAt).toLocaleString()}</td>
-                    <td className="p-2">
-                      <button
-                        className="text-emerald-900 underline font-semibold mr-2"
-                        onClick={() => setThreadOpenId(threadOpenId === ticket.id ? null : ticket.id)}
-                      >View Thread</button>
-                      {ticket.status !== "CLOSED" && (
-                        <button
-                          className="text-red-800 underline font-semibold"
-                          onClick={() => handleClose(ticket.id)}
-                        >Close</button>
-                      )}
-                    </td>
+        {/* Desktop: table with expandable thread */}
+        <div className="hidden md:block">
+          <div className="overflow-hidden rounded-xl border border-emerald-50 bg-white/80">
+            <div className="max-h-[480px] overflow-y-auto">
+              <table className="min-w-full text-xs text-emerald-950">
+                <thead className="bg-emerald-50/80 text-[11px] uppercase tracking-wide text-emerald-700">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-semibold">User</th>
+                    <th className="px-4 py-2 text-left font-semibold">Email</th>
+                    <th className="px-4 py-2 text-left font-semibold">Subject</th>
+                    <th className="px-4 py-2 text-left font-semibold">Status</th>
+                    <th className="px-4 py-2 text-left font-semibold">Created</th>
+                    <th className="px-4 py-2 text-right font-semibold">Actions</th>
                   </tr>
-                  {threadOpenId === ticket.id && (
-                    <tr>
-                      <td colSpan={6} className="bg-gray-50 p-4">
-                        <div className="mb-2 font-bold text-emerald-900">Threaded Messages</div>
-                        <div className="flex flex-col gap-3 mb-4">
-                          {ticket.messages.length === 0 && <div className="text-gray-700">No messages yet.</div>}
-                          {ticket.messages.map(msg => (
-                            <div key={msg.id} className="rounded-lg border bg-white p-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-semibold text-emerald-900">{msg.user.fullName}</span>
-                                <span className="text-xs text-gray-500">{new Date(msg.createdAt).toLocaleString()}</span>
+                </thead>
+                <tbody className="divide-y divide-emerald-50">
+                  {tickets.map((ticket) => (
+                    <React.Fragment key={ticket.id}>
+                      <tr className="transition hover:bg-emerald-50/60">
+                        <td className="px-4 py-2.5 align-middle">
+                          <div className="flex flex-col">
+                            <span className="truncate text-[13px] font-semibold text-emerald-950">
+                              {ticket.user.fullName}
+                            </span>
+                            <span className="truncate text-[11px] text-emerald-700">{ticket.user.email}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <span className="truncate text-[11px] text-emerald-800">{ticket.user.email}</span>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <span className="text-[11px] text-emerald-900">{ticket.subject}</span>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <span className="text-[11px] text-emerald-800">{ticket.status}</span>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <span className="text-[11px] text-emerald-800">
+                            {new Date(ticket.createdAt).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle text-right">
+                          <div className="flex flex-wrap items-center justify-end gap-2 text-[11px]">
+                            <button
+                              className="text-sky-700 hover:underline"
+                              onClick={() =>
+                                setThreadOpenId(
+                                  threadOpenId === ticket.id ? null : ticket.id,
+                                )
+                              }
+                            >
+                              {threadOpenId === ticket.id ? "Hide thread" : "View thread"}
+                            </button>
+                            {ticket.status !== "CLOSED" && (
+                              <button
+                                className="text-rose-700 hover:underline"
+                                onClick={() => handleClose(ticket.id)}
+                              >
+                                Close
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {threadOpenId === ticket.id && (
+                        <tr>
+                          <td colSpan={6} className="bg-emerald-50/40 p-4">
+                            <div className="mb-2 text-[11px] font-semibold text-emerald-900">
+                              Threaded messages
+                            </div>
+                            <div className="mb-4 flex flex-col gap-2">
+                              {ticket.messages.length === 0 && (
+                                <div className="text-[11px] text-emerald-800">No messages yet.</div>
+                              )}
+                              {ticket.messages.map((msg) => (
+                                <div
+                                  key={msg.id}
+                                  className={
+                                    "flex " + (msg.user.id === ticket.user.id ? "justify-start" : "justify-end")
+                                  }
+                                >
+                                  <div
+                                    className={
+                                      "max-w-[70%] rounded-2xl px-3 py-2 text-[11px] " +
+                                      (msg.user.id === ticket.user.id
+                                        ? "bg-white border border-emerald-100 text-emerald-900"
+                                        : "bg-emerald-600 text-emerald-50")
+                                    }
+                                  >
+                                    <div className="mb-0.5 flex items-center justify-between gap-2">
+                                      <span className="font-semibold">
+                                        {msg.user.id === ticket.user.id ? ticket.user.fullName : "Admin"}
+                                      </span>
+                                      <span className="text-[10px] opacity-80">
+                                        {new Date(msg.createdAt).toLocaleTimeString()}
+                                      </span>
+                                    </div>
+                                    {editingMessageId === msg.id && editingTicketId === ticket.id ? (
+                                      <div className="mt-1 flex flex-col gap-1">
+                                        <textarea
+                                          className="min-h-[56px] w-full rounded-lg border border-emerald-200 bg-white px-2 py-1 text-[11px] text-emerald-900 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                          value={editingText}
+                                          onChange={(e) => setEditingText(e.target.value)}
+                                        />
+                                        <div className="flex justify-end gap-2 text-[10px]">
+                                          <button
+                                            type="button"
+                                            className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-800 hover:bg-slate-200"
+                                            onClick={() => {
+                                              setEditingMessageId(null);
+                                              setEditingTicketId(null);
+                                              setEditingText("");
+                                            }}
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="rounded-full bg-emerald-700 px-2 py-1 font-semibold text-emerald-50 hover:bg-emerald-800 disabled:opacity-50"
+                                            disabled={savingEdit}
+                                            onClick={() => saveMessageEdit(ticket.id, msg.id)}
+                                          >
+                                            {savingEdit ? "Saving..." : "Save"}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="mt-0.5 whitespace-pre-wrap break-words">
+                                          {msg.message}
+                                        </div>
+                                        {! (msg.user.id === ticket.user.id) &&
+                                          now - new Date(msg.createdAt).getTime() <= 60_000 && (
+                                            <button
+                                              type="button"
+                                              className="mt-1 text-[10px] font-semibold underline underline-offset-2 opacity-90"
+                                              onClick={() => {
+                                                setEditingMessageId(msg.id);
+                                                setEditingTicketId(ticket.id);
+                                                setEditingText(msg.message);
+                                              }}
+                                            >
+                                              Edit
+                                            </button>
+                                          )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {ticket.status !== "CLOSED" && (
+                              <form
+                                className="flex flex-col gap-2"
+                                onSubmit={(e) => submitResponse(e, ticket.id)}
+                              >
+                                <textarea
+                                  className="h-24 w-full rounded-lg border border-emerald-200 px-3 py-2 text-[11px] text-emerald-900 placeholder:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                  placeholder="Type your reply..."
+                                  value={respondingId === ticket.id ? response : ""}
+                                  onChange={(e) => {
+                                    setRespondingId(ticket.id);
+                                    setResponse(e.target.value);
+                                  }}
+                                  required
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="submit"
+                                    className="inline-flex items-center rounded-full bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-emerald-50 shadow-sm hover:bg-emerald-800 disabled:opacity-40"
+                                    disabled={loading}
+                                  >
+                                    {loading ? "Sending..." : "Send reply"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-semibold text-slate-800 hover:bg-slate-200"
+                                    onClick={() => {
+                                      setRespondingId(null);
+                                      setResponse("");
+                                      setThreadOpenId(null);
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </form>
+                            )}
+                            {ticket.status === "CLOSED" && (
+                              <div className="text-[11px] font-semibold text-emerald-800">
+                                Ticket closed.
                               </div>
-                              <div className="text-gray-900">{msg.message}</div>
-                            </div>
-                          ))}
-                        </div>
-                        {ticket.status !== "CLOSED" && (
-                          <form className="flex flex-col gap-2" onSubmit={e => submitResponse(e, ticket.id)}>
-                            <textarea
-                              className="border rounded px-3 py-2 w-full text-gray-900 placeholder-gray-700"
-                              placeholder="Type your reply..."
-                              value={respondingId === ticket.id ? response : ""}
-                              onChange={e => {
-                                setRespondingId(ticket.id);
-                                setResponse(e.target.value);
-                              }}
-                              required
-                            />
-                            <div className="flex gap-2">
-                              <button type="submit" className="bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow hover:bg-emerald-900 transition" disabled={loading}>
-                                {loading ? "Sending..." : "Send Reply"}
-                              </button>
-                              <button type="button" className="bg-gray-300 text-gray-900 px-4 py-2 rounded font-semibold" onClick={() => { setRespondingId(null); setResponse(""); }}>
-                                Cancel
-                              </button>
-                            </div>
-                          </form>
-                        )}
-                        {ticket.status === "CLOSED" && <div className="text-gray-700 font-semibold">Ticket closed.</div>}
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                  {tickets.length === 0 && !loading && (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-4 py-6 text-center text-[11px] text-emerald-800 bg-emerald-50/40"
+                      >
+                        No support tickets.
                       </td>
                     </tr>
                   )}
-                </React.Fragment>
-              ))}
-              {tickets.length === 0 && !loading && (
-                <tr><td colSpan={6} className="text-center p-4 text-gray-700">No support tickets.</td></tr>
-              )}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <div className="flex justify-between items-center mt-4">
-          <button
-            className="px-3 py-1 rounded bg-emerald-300 text-emerald-900 font-bold disabled:opacity-50"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >Prev</button>
-          <span className="text-gray-900 font-bold">Page {page} of {totalPages}</span>
-          <button
-            className="px-3 py-1 rounded bg-emerald-300 text-emerald-900 font-bold disabled:opacity-50"
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-          >Next</button>
+
+        {/* Pagination */}
+        <div className="mt-4 flex flex-col items-center justify-between gap-2 text-[11px] sm:flex-row">
+          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-900 border border-emerald-100">
+            <button
+              type="button"
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 font-semibold text-emerald-800 shadow-sm hover:bg-emerald-50 disabled:opacity-40"
+            >
+              <ChevronLeftIcon className="h-3.5 w-3.5" />
+              Prev
+            </button>
+            <span className="px-2 text-[11px] font-medium text-emerald-900">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 font-semibold text-emerald-800 shadow-sm hover:bg-emerald-50 disabled:opacity-40"
+            >
+              Next
+              <ChevronRightIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

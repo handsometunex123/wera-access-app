@@ -14,8 +14,8 @@ export async function proxy(request: NextRequest) {
 
   // Get session token (works for both JWT and session cookies)
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  // Redirect root (/) to /auth if not authenticated
-  if (pathname === "/" && !token) {
+  // Redirect any protected route to /auth if not authenticated
+  if (!token && !PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.redirect(new URL("/auth", request.url));
   }
 

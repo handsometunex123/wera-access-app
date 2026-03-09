@@ -52,6 +52,7 @@ model User {
   relationship   String?  // Relationship to main resident (for dependants)
   canManageCodes Boolean  @default(false)
   canGenerateAdminCode Boolean @default(false)
+  adminCodeDisabledReason String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   invites        Invite[]
@@ -66,6 +67,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   feedbacks Feedback[]
   codeScanLogs CodeScanLog[] @relation("GuardCodeScanLogs")
+  residentAccessLogs CodeScanLog[] @relation("ResidentAccessLogs")
   dependantPermissionRequests DependantPermissionRequest[] @relation("DependantPermissionRequestsDependant")
   mainResidentPermissionRequests DependantPermissionRequest[] @relation("DependantPermissionRequestsMainResident")
   verificationCode   String?  // Verification code for new device login
@@ -115,6 +117,13 @@ model AccessCode {
   usageType    UsageType
   status       CodeStatus
   qrCodeUrl    String?
+  purpose      String?
+  itemDetails  String?
+  itemImageUrl String?
+  adminApprovalStatus AdminApprovalStatus @default(PENDING)
+  adminApprovalById   String?
+  adminApprovalAt     DateTime?
+  adminRejectionReason String?
   usedAt       DateTime?
   createdAt    DateTime @default(now())
   createdBy    User     @relation(fields: [createdById], references: [id])
@@ -137,6 +146,18 @@ enum CodeStatus {
   EXPIRED
   REVOKED
   CHECKED_OUT // Added to support checkout functionality
+}
+
+enum AdminApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AccessMethod {
+  ACCESS_CARD
+  FINGERPRINT
+  ACCESS_CODE
 }
 
 model Invite {
@@ -217,7 +238,10 @@ model CodeScanLog {
   codeId    String
   status    String   // e.g., 'SUCCESS', 'FAIL'
   message   String?
+  accessMethod AccessMethod? @default(ACCESS_CODE)
+  residentId   String?
   createdAt DateTime @default(now())
   guard     User     @relation("GuardCodeScanLogs", fields: [guardId], references: [id])
   code      AccessCode @relation("AccessCodeScanLogs", fields: [codeId], references: [id])
+  resident  User?    @relation("ResidentAccessLogs", fields: [residentId], references: [id])
 }

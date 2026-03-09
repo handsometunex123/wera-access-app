@@ -15,6 +15,7 @@ export async function GET() {
       fullName: true,
       email: true,
       canGenerateAdminCode: true,
+      adminCodeDisabledReason: true,
     },
     orderBy: { fullName: "asc" },
   });

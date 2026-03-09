@@ -2,6 +2,8 @@ self.addEventListener('install', (event) => {
   console.log('Service Worker installing.');
   event.waitUntil(
     caches.open('wera-cache').then((cache) => {
+      // Only cache resources that are guaranteed to exist to avoid
+      // "Failed to execute 'addAll' on 'Cache': Request failed" errors.
       return cache.addAll([
         '/',
         '/manifest.json',
@@ -12,7 +14,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', () => {
   console.log('Service Worker activating.');
 });
 

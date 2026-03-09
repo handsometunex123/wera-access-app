@@ -93,3 +93,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to send notification" }, { status: 400 });
   }
 }
+
+// PATCH /api/admin/notifications (mark notification read/unread)
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as { role?: string } | undefined)?.role;
+    if (!session || role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id, read } = await req.json();
+    if (!id || typeof read !== 'boolean') {
+      return NextResponse.json({ error: 'id and read(boolean) are required' }, { status: 400 });
+    }
+
+    const updated = await prisma.notification.update({
+      where: { id },
+      data: { read },
+    });
+
+    // Strip admin marker for consistency with GET
+    const cleaned: Notification = {
+      ...updated,
+      message: updated.message.startsWith(ADMIN_MARKER)
+        ? updated.message.replace(ADMIN_MARKER, '').trim()
+        : updated.message,
+    };
+
+    return NextResponse.json({ success: true, notification: cleaned });
+  } catch (err) {
+    console.error('Failed to update notification read state', err);
+    return NextResponse.json({ error: 'Failed to update notification' }, { status: 400 });
+  }
+}

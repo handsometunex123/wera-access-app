@@ -1,10 +1,11 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { ArrowDownTrayIcon, ShareIcon, QrCodeIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { ArrowDownTrayIcon, ShareIcon, QrCodeIcon } from "@heroicons/react/24/solid";
+import { KeyIcon } from "@heroicons/react/24/outline";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-hot-toast";
-import Link from "next/link";
+import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
 
 function useDatepickerStyles() {
   useEffect(() => {
@@ -118,15 +119,15 @@ function useCrispyInputStyles() {
     const style = document.createElement("style");
     style.innerHTML = `
       .crispy-input, .crispy-select {
-        background: #f8fafc;
-        border: 1.5px solid #e5e7eb;
-        border-radius: 0.75rem;
-        padding: 0.85rem 1.1rem;
-        font-size: 1.08rem;
+        background: #ffffff;
+        border: 1px solid #d1fae5;
+        border-radius: 9999px;
+        padding: 0.55rem 0.9rem;
+        font-size: 0.78rem;
         font-weight: 500;
-        color: #1e293b;
-        transition: border 0.2s, box-shadow 0.2s;
-        box-shadow: 0 1px 2px 0 rgba(16,185,129,0.04);
+        color: #064e3b;
+        transition: border 0.2s, box-shadow 0.2s, background 0.2s;
+        box-shadow: 0 1px 2px 0 rgba(16,185,129,0.06);
       }
       .crispy-input:focus, .crispy-select:focus {
         outline: none;
@@ -184,7 +185,6 @@ export default function ResidentGenerateCodePage() {
     })
     | null
   >(null);
-  const [showDialog, setShowDialog] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({ });
 
@@ -225,7 +225,6 @@ export default function ResidentGenerateCodePage() {
       if (!res.ok) setError(data.error || "Failed to generate code");
       else {
         setResult(data);
-        setShowDialog(true);
       }
     } catch {
       setError("Network error");
@@ -262,19 +261,28 @@ export default function ResidentGenerateCodePage() {
   }, [popperWidth]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-3 md:p-6">
-      <div className="w-full max-w-md mx-auto flex items-center mb-4">
-        <Link href="/resident/dashboard" className="flex items-center gap-2 text-emerald-700 hover:text-emerald-900 font-medium text-base">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-          Back to Dashboard
-        </Link>
+    <div className="w-full max-w-3xl mx-auto space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between">
+        <ResidentBackToDashboard />
+        <p className="hidden text-[11px] text-emerald-700 md:inline">Create a fresh guest access code in seconds.</p>
       </div>
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-4 md:p-6 flex flex-col gap-4">
-        <h1 className="text-xl md:text-2xl font-bold text-emerald-900 mb-2 text-center tracking-tight">Generate Access Code</h1>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <label className="block font-medium text-gray-900">Invite Time</label>
+      <div className="w-full rounded-2xl border border-emerald-100 bg-white/95 shadow-sm p-4 md:p-6 flex flex-col gap-4">
+        <div className="mb-2 flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+            <KeyIcon className="h-5 w-5" />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-lg md:text-xl font-semibold text-emerald-950 tracking-tight">Generate guest code</h1>
+            <p className="text-[11px] text-emerald-700">Create a short-lived access code for your visitors.</p>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-emerald-100 bg-white/80 p-3 shadow-sm sm:p-4">
+          <div className="mb-3">
+            <h2 className="text-sm font-semibold text-emerald-950 tracking-tight">Code details</h2>
+            <p className="text-[11px] text-emerald-700">Pick a time window and how your guest can use the code.</p>
+          </div>
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <label className="block text-[11px] font-medium text-emerald-900">Invite time</label>
           <div className="relative w-full" ref={inputWrapperRef}>
             <DatePicker
               selected={form.inviteTime}
@@ -293,7 +301,7 @@ export default function ResidentGenerateCodePage() {
               popperClassName={popperClass}
             />
           </div>
-          <label className="block font-medium text-gray-900">Code Validity</label>
+          <label className="block text-[11px] font-medium text-emerald-900">Code validity</label>
           <select
             className="crispy-select w-full"
             value={form.validity}
@@ -319,75 +327,81 @@ export default function ResidentGenerateCodePage() {
             <option value={960}>16 hours</option>
           </select>
           {fieldErrors.validity && <div className="text-red-600 text-sm mt-1">{fieldErrors.validity}</div>}
-          <label className="block font-medium text-gray-900">Usage Type</label>
-          <div className="flex gap-4 mb-2">
-            <label
+          <label className="block text-[11px] font-medium text-emerald-900">Usage type</label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, usageType: "ENTRY_AND_EXIT" }))}
               className={
-                "flex items-center cursor-pointer px-3 py-2 rounded-lg border transition font-medium text-base shadow-sm " +
+                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition " +
                 (form.usageType === "ENTRY_AND_EXIT"
-                  ? "border-emerald-400 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200"
-                  : "border-gray-200 bg-gray-50 text-gray-700")
+                  ? "border-emerald-300 bg-emerald-700 text-emerald-50"
+                  : "border-emerald-100 bg-emerald-50 text-emerald-900 hover:bg-emerald-100")
               }
             >
-              <input
-                type="radio"
-                name="usageType"
-                value="ENTRY_AND_EXIT"
-                checked={form.usageType === "ENTRY_AND_EXIT"}
-                onChange={() => setForm(f => ({ ...f, usageType: "ENTRY_AND_EXIT" }))}
-                className="accent-emerald-600 mr-2"
-              />
-              Entry & Exit
-            </label>
-            <label
+              Entry & exit
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, usageType: "ENTRY_ONLY" }))}
               className={
-                "flex items-center cursor-pointer px-3 py-2 rounded-lg border transition font-medium text-base shadow-sm " +
-                (form.usageType === "ONE_TIME"
-                  ? "border-blue-400 bg-blue-50 text-blue-900 ring-2 ring-blue-200"
-                  : "border-gray-200 bg-gray-50 text-gray-700")
+                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition " +
+                (form.usageType === "ENTRY_ONLY"
+                  ? "border-emerald-300 bg-emerald-700 text-emerald-50"
+                  : "border-emerald-100 bg-emerald-50 text-emerald-900 hover:bg-emerald-100")
               }
             >
-              <input
-                type="radio"
-                name="usageType"
-                value="ENTRY_ONLY"
-                checked={form.usageType === "ENTRY_ONLY"}
-                onChange={() => setForm(f => ({ ...f, usageType: "ENTRY_ONLY" }))}
-                className="accent-blue-600 mr-2"
-              />
-              One Time
-            </label>
+              One time entry
+            </button>
           </div>
           {fieldErrors.usageType && <div className="text-red-600 text-sm mt-1">{fieldErrors.usageType}</div>}
-          <label className="block font-medium text-gray-900">Who is this invite for?</label>
-          <select
-            className="crispy-select w-full"
-            value={form.forWhom}
-            onChange={e => setForm(f => ({ ...f, forWhom: e.target.value }))}
-          >
-            <option value="MYSELF">Myself</option>
-            <option value="OTHER">Other</option>
-          </select>
+          <label className="block text-[11px] font-medium text-emerald-900">Who is this invite for?</label>
+          <div className="flex flex-wrap gap-2 mb-1">
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, forWhom: "MYSELF" }))}
+              className={
+                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition " +
+                (form.forWhom === "MYSELF"
+                  ? "border-emerald-300 bg-emerald-700 text-emerald-50"
+                  : "border-emerald-100 bg-emerald-50 text-emerald-900 hover:bg-emerald-100")
+              }
+            >
+              Myself
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, forWhom: "OTHER" }))}
+              className={
+                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition " +
+                (form.forWhom === "OTHER"
+                  ? "border-emerald-300 bg-emerald-700 text-emerald-50"
+                  : "border-emerald-100 bg-emerald-50 text-emerald-900 hover:bg-emerald-100")
+              }
+            >
+              Someone else
+            </button>
+          </div>
           {fieldErrors.forWhom && <div className="text-red-600 text-sm mt-1">{fieldErrors.forWhom}</div>}
           {form.forWhom === "OTHER" && (
             <div>
-              <label className="block font-medium text-gray-900">Number of People</label>
+              <label className="block text-[11px] font-medium text-emerald-900">Number of people</label>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setForm(f => ({ ...f, numPeople: Math.max(1, f.numPeople - 1) }))}
-                  className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-emerald-800 font-bold"
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-emerald-800 text-sm font-bold"
                   aria-label="Decrease number of people"
                 >
                   -
                 </button>
-                <div className="px-4 py-2 rounded-lg border border-emerald-100 bg-white text-lg font-medium crispy-input">
+                <div className="min-w-[3rem] rounded-full border border-emerald-100 bg-white px-4 py-1 text-center text-[13px] font-semibold text-emerald-900">
                   {form.numPeople}
                 </div>
                 <button
                   type="button"
                   onClick={() => setForm(f => ({ ...f, numPeople: Math.min(4, f.numPeople + 1) }))}
-                  className="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-emerald-800 font-bold"
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-emerald-800 text-sm font-bold"
                   aria-label="Increase number of people"
                 >
                   +
@@ -396,53 +410,56 @@ export default function ResidentGenerateCodePage() {
               {fieldErrors.numPeople && <div className="text-red-600 text-sm mt-1">{fieldErrors.numPeople}</div>}
             </div>
           )}
-         
-          <button
-            type="submit"
-            className="bg-emerald-700 text-white font-bold py-3 rounded-lg shadow hover:bg-emerald-900 transition text-lg"
-            disabled={loading}
-          >
-            {loading ? "Generating..." : "Generate Code"}
-          </button>
+
+          <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[10px] text-emerald-700">Codes can be scanned by estate guards during the selected window.</p>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-full bg-emerald-700 px-4 py-2 text-[13px] font-semibold text-emerald-50 shadow-sm transition hover:bg-emerald-800 disabled:opacity-70 disabled:cursor-not-allowed"
+              disabled={loading}
+            >
+              {loading ? "Generating..." : "Generate code"}
+            </button>
+          </div>
+          {error && <div className="mt-3 text-[10px] font-medium text-rose-700">{error}</div>}
         </form>
-        {showDialog && result && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-2">
-            <div className="bg-white rounded-xl shadow-2xl p-3 md:p-6 w-full max-w-sm md:max-w-md relative flex flex-col items-center animate-fadeIn gap-3">
-              <button
-                className="absolute top-3 right-3 text-gray-400 hover:text-emerald-700 transition"
-                onClick={() => setShowDialog(false)}
-                aria-label="Close dialog"
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-              <h2 className="text-lg md:text-xl font-extrabold text-emerald-900 mb-1 md:mb-2 text-center tracking-tight">Access Code Generated</h2>
-              <div className="w-40 h-40 mx-auto border-2 border-emerald-100 rounded-lg bg-white flex items-center justify-center overflow-hidden mb-2">
+        </div>
+
+        {result && (
+          <div className="mt-4 rounded-2xl border border-emerald-100 bg-white/80 p-3 shadow-sm sm:p-4">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold text-emerald-950 tracking-tight">Generated code</h2>
+              <p className="text-[11px] text-emerald-700">Share this code or QR with your guest or estate security.</p>
+            </div>
+            <div className="rounded-xl border border-emerald-50 bg-emerald-50/40 px-3 py-3 sm:px-4">
+              <div className="mb-3 flex flex-col items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Scan QR</span>
                 <Image
                   src={result.qr}
                   alt="QR Code"
-                  width={160}
-                  height={160}
-                  className="object-contain"
+                  width={140}
+                  height={140}
+                  className="object-contain border rounded-lg bg-white"
                   priority
                   unoptimized
                 />
+                <div className="rounded-full bg-white px-3 py-1 font-mono text-[13px] font-semibold text-emerald-900 border border-emerald-100 break-all text-center">
+                  {result.code}
+                </div>
               </div>
-              <div className="text-lg md:text-4xl font-mono font-extrabold text-emerald-800 mb-3 tracking-widest break-all select-all text-center" style={{letterSpacing:'0.12em'}}>{result.code}</div>
-
-
-              <div className="flex gap-4 mb-4">
+              <div className="mb-3 flex flex-wrap justify-center gap-2">
                 <button
-                  className="flex items-center gap-1 px-4 py-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-semibold shadow text-base"
+                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-[12px] font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100"
                   onClick={async () => {
                     await navigator.clipboard.writeText(result.code);
                     toast.success("Code copied to clipboard!");
                   }}
                   type="button"
                 >
-                  <ArrowDownTrayIcon className="w-6 h-6" /> Copy
+                  <ArrowDownTrayIcon className="w-4 h-4" /> Copy
                 </button>
                 <button
-                  className="flex items-center gap-1 px-4 py-2 rounded-xl bg-blue-100 hover:bg-blue-200 text-blue-900 font-semibold shadow text-base"
+                  className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1.5 text-[12px] font-semibold text-sky-800 shadow-sm hover:bg-sky-100"
                   onClick={async () => {
                     if (navigator.share) {
                       await navigator.share({ title: "Access Code", text: result.code });
@@ -453,10 +470,10 @@ export default function ResidentGenerateCodePage() {
                   }}
                   type="button"
                 >
-                  <ShareIcon className="w-6 h-6" /> Share
+                  <ShareIcon className="w-4 h-4" /> Share
                 </button>
                 <button
-                  className="flex items-center gap-1 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold shadow text-base"
+                  className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm hover:bg-slate-100"
                   onClick={async () => {
                     if (navigator.canShare && window.Blob && result.qr.startsWith('data:image')) {
                       try {
@@ -469,7 +486,6 @@ export default function ResidentGenerateCodePage() {
                         }
                       } catch {}
                     }
-                    // fallback: download
                     const link = document.createElement('a');
                     link.href = result.qr;
                     link.download = `access-qr.png`;
@@ -477,21 +493,30 @@ export default function ResidentGenerateCodePage() {
                   }}
                   type="button"
                 >
-                  <QrCodeIcon className="w-6 h-6" /> Share QR
+                  <QrCodeIcon className="w-4 h-4" /> Share QR
                 </button>
               </div>
-              <div className="w-full bg-gray-50 rounded-2xl p-3 flex flex-col gap-2 text-gray-800 text-base">
-                <div className="flex justify-between"><span className="font-semibold">Valid From:</span> <span>{result.validFrom ? new Date(result.validFrom).toLocaleString() : '-'}</span></div>
-                <div className="flex justify-between"><span className="font-semibold">Expires On:</span> <span>{result.validTo ? new Date(result.validTo).toLocaleString() : '-'}</span></div>
-                <div className="flex justify-between"><span className="font-semibold">Expected Guests:</span> <span>{result.usageLimit ?? '-'}</span></div>
-                <div className="flex justify-between"><span className="font-semibold">Guest Checked In:</span> <span>{result.guestCheckedIn ? new Date(result.guestCheckedIn).toLocaleString() : '-'}</span></div>
-                <div className="flex justify-between"><span className="font-semibold">Guest Checked Out:</span> <span>{result.guestCheckedOut ? new Date(result.guestCheckedOut).toLocaleString() : '-'}</span></div>
+              <div className="grid gap-2 text-[11px] text-emerald-900 sm:grid-cols-2">
+                <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
+                  <span className="font-semibold">Valid from:</span>
+                  <span>{result.validFrom ? new Date(result.validFrom).toLocaleString() : '-'}</span>
+                </div>
+                <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
+                  <span className="font-semibold">Valid to:</span>
+                  <span>{result.validTo ? new Date(result.validTo).toLocaleString() : '-'}</span>
+                </div>
+                <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
+                  <span className="font-semibold">Expected guests:</span>
+                  <span>{result.usageLimit ?? '-'}</span>
+                </div>
+                <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
+                  <span className="font-semibold">Usage type:</span>
+                  <span>{result.usageType ? result.usageType.replace("_", " ") : '-'}</span>
+                </div>
               </div>
-              <div className="text-green-700 text-center font-bold mt-2 text-lg">Code generated!</div>
             </div>
           </div>
         )}
-        {error && <div className="mt-4 text-red-700 text-center font-semibold">{error}</div>}
       </div>
     </div>
   );

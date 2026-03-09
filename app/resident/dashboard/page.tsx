@@ -2,14 +2,13 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { FaUser, FaKey, FaClipboardList, FaBell, FaUserCircle, FaEnvelope } from "react-icons/fa";
-import { signOut } from "next-auth/react"; // Import signOut for logout functionality
+import { FaUser, FaKey, FaClipboardList, FaBell, FaUserCircle, FaEnvelope, FaMoneyBillWave } from "react-icons/fa";
 
 type Action = {
   href: string;
   label: string;
   icon: React.ReactNode;
-  onClick?: () => void; // Add optional onClick property
+  onClick?: () => void;
 };
 
 export default function ResidentDashboard() {
@@ -17,30 +16,35 @@ export default function ResidentDashboard() {
   const [loading, setLoading] = useState(true);
   const [residentName, setResidentName] = useState<string>("");
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [canManageCodes, setCanManageCodes] = useState(false);
+  const [isMainResident, setIsMainResident] = useState(false);
   useEffect(() => {
     async function fetchProfile() {
 
       setLoading(true);
       const res = await fetch("/api/resident/profile");
       const data = await res.json();
-      const canManageCodes = data?.profile?.canManageCodes;
-      const canGenerateAdminCode = data?.profile?.canGenerateAdminCode;
+      const manage = data?.profile?.canManageCodes;
+      const canAdminCode = data?.profile?.canGenerateAdminCode;
+      const role = data?.profile?.role as string | undefined;
       setResidentName(data?.profile?.fullName || "Resident");
       setProfileImage(data?.profile?.profileImage || null);
-      const isDependant = data?.profile?.role === "DEPENDANT"; // Check if the user is a dependant
+      const dependant = data?.profile?.role === "DEPENDANT";
+      setCanManageCodes(Boolean(manage));
+      setIsMainResident(role === "MAIN_RESIDENT");
 
       const baseActions = [
-        canManageCodes && {
+        manage && {
           href: "/resident/generate-code",
           label: "Generate Code",
           icon: <FaKey className="h-6 w-6 text-emerald-700" />,
         },
-        canManageCodes && {
+        manage && {
           href: "/resident/manage-codes",
           label: "Manage Codes",
           icon: <FaClipboardList className="h-6 w-6 text-emerald-700" />,
         },
-        canGenerateAdminCode && {
+        canAdminCode && {
           href: "/resident/generate-admin-code",
           label: "Generate Admin Code",
           icon: <FaKey className="h-6 w-6 text-red-700" />,
@@ -55,7 +59,12 @@ export default function ResidentDashboard() {
           label: "Notifications",
           icon: <FaBell className="h-6 w-6 text-yellow-600" />,
         },
-        !isDependant && {
+        isMainResident && {
+          href: "/resident/payment-requests",
+          label: "Payment Requests",
+          icon: <FaMoneyBillWave className="h-6 w-6 text-emerald-700" />,
+        },
+        !dependant && {
           href: "/resident/dependants",
           label: "Dependants",
           icon: <FaUser className="h-6 w-6 text-purple-700" />,
@@ -80,12 +89,6 @@ export default function ResidentDashboard() {
           label: "Profile",
           icon: <FaUserCircle className="h-6 w-6 text-gray-700" />,
         },
-        {
-          href: "#",
-          label: "Logout",
-          icon: <FaUserCircle className="h-6 w-6 text-red-700" />,
-          onClick: () => signOut({ callbackUrl: "/auth" }), // Redirect to login page after signing out
-        },
       ].filter(Boolean);
       setActions(baseActions);
       setLoading(false);
@@ -93,56 +96,135 @@ export default function ResidentDashboard() {
     fetchProfile();
   }, []);
 
+  const describeAction = (label: string): string => {
+    switch (label) {
+      case "Generate Code":
+        return "Create a fresh access code for guests.";
+      case "Manage Codes":
+        return "View, share or disable existing codes.";
+      case "Generate Admin Code":
+        return "Request a special code from the estate admin.";
+      case "Payment Requests":
+        return "Review bills and upload proof of payment.";
+      case "Notifications":
+        return "See estate-wide announcements and alerts.";
+      case "Dependants":
+        return "Manage access for family members or dependants.";
+      case "Support Tickets":
+        return "Raise and track issues with the estate team.";
+      case "Feedback":
+        return "Share suggestions to improve the estate experience.";
+      case "Estate Contacts":
+        return "Find key estate phone numbers and emails.";
+      case "Profile":
+        return "Review and update your personal details.";
+      default:
+        return "";
+    }
+  };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex flex-col items-center justify-start py-8 px-2">
-      <div className="w-full max-w-lg mx-auto">
-        <div className="flex flex-col items-center mb-8">
-          <div className="rounded-full p-1 shadow mb-2 border border-emerald-100 bg-white overflow-hidden w-24 h-24 flex items-center justify-center">
-            {profileImage ? (
-              <Image
-                src={profileImage}
-                alt="Profile"
-                width={96}
-                height={96}
-                className="rounded-full object-cover w-full h-full"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-16 w-16">
-                <FaUser className="h-16 w-16 text-emerald-700" />
+    <div className="w-full max-w-6xl mx-auto space-y-6">
+      <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 lg:gap-6 items-start">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row items-center md:items-stretch gap-4 rounded-2xl border border-emerald-100 bg-white/90 p-4 shadow-sm">
+            <div className="flex items-center gap-4 md:border-r md:border-emerald-50 md:pr-4">
+              <div className="rounded-full p-1 shadow border border-emerald-100 bg-white overflow-hidden w-20 h-20 flex items-center justify-center">
+                {profileImage ? (
+                  <Image
+                    src={profileImage}
+                    alt="Profile"
+                    width={80}
+                    height={80}
+                    className="rounded-full object-cover w-full h-full"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-14 w-14">
+                    <FaUser className="h-14 w-14 text-emerald-700" />
+                  </div>
+                )}
               </div>
-            )}
+              <div className="flex flex-col">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Welcome back</p>
+                <h1 className="text-lg md:text-xl font-bold text-emerald-950 tracking-tight">{residentName}</h1>
+                <p className="text-[12px] text-emerald-700 mt-1">
+                  Your quick snapshot of estate access, guests and support.
+                </p>
+              </div>
+            </div>
           </div>
-          <h1 className="text-2xl font-extrabold text-emerald-900 mb-1 text-center tracking-tight">Welcome, {residentName}!</h1>
-          <p className="text-gray-500 text-center text-base">Quick access to all your estate features</p>
+
+          {loading ? (
+            <div className="rounded-2xl border border-emerald-100 bg-white/80 p-4 text-center text-emerald-700 shadow-sm">
+              Loading your actions...
+            </div>
+          ) : (
+            <section className="rounded-2xl border border-emerald-100 bg-white/95 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600">Quick actions</p>
+                  <p className="text-xs text-slate-500">Jump straight into the tools you use most.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {actions.map((action) => (
+                  <Link
+                    key={action.href}
+                    href={action.href}
+                    className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2.5 text-sm text-emerald-950 shadow-sm hover:bg-emerald-50 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm">
+                      {action.icon}
+                    </span>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate font-semibold">{action.label}</span>
+                      {describeAction(action.label) && (
+                        <span className="truncate text-[11px] text-emerald-800/80">
+                          {describeAction(action.label)}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
-        {loading ? (
-          <div className="text-center text-emerald-700">Loading...</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {actions.map((action) => (
-              action.label === "Logout" ? (
-                <button
-                  key={action.label}
-                  onClick={action.onClick}
-                  className="flex items-center gap-3 p-4 rounded-xl shadow-md font-semibold text-lg border border-emerald-100 bg-white hover:bg-gray-50 active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
-                >
-                  {action.icon}
-                  <span>{action.label}</span>
-                </button>
-              ) : (
-                <Link
-                  key={action.href}
-                  href={action.href}
-                  className="flex items-center gap-3 p-4 rounded-xl shadow-md font-semibold text-lg border border-emerald-100 bg-white hover:bg-gray-50 active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
-                >
-                  {action.icon}
-                  <span>{action.label}</span>
+
+        <aside className="space-y-3">
+          <div className="rounded-2xl border border-emerald-100 bg-white/90 p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600 mb-2">Shortcuts</p>
+            <div className="flex flex-col gap-2 text-sm">
+              {canManageCodes && (
+                <Link href="/resident/manage-codes" className="inline-flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100">
+                  <span>View your active codes</span>
+                  <FaKey className="h-4 w-4" />
                 </Link>
-              )
-            ))}
+              )}
+              {isMainResident && (
+                <Link href="/resident/payment-requests" className="inline-flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100">
+                  <span>View payment requests</span>
+                  <FaMoneyBillWave className="h-4 w-4" />
+                </Link>
+              )}
+              <Link href="/resident/notifications" className="inline-flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100">
+                <span>Check estate notifications</span>
+                <FaBell className="h-4 w-4" />
+              </Link>
+              <Link href="/resident/support-tickets" className="inline-flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100">
+                <span>Contact support</span>
+                <FaEnvelope className="h-4 w-4" />
+              </Link>
+              <Link href="/resident/profile" className="inline-flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-emerald-900 hover:bg-emerald-100">
+                <span>View your profile</span>
+                <FaUserCircle className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
-        )}
-        <div className="mt-10 text-xs text-gray-400 text-center">Estate Access App &copy; {new Date().getFullYear()}</div>
+        </aside>
+      </section>
+
+      <div className="mt-2 text-[11px] text-slate-400 text-center">
+        Estate Access App &copy; {new Date().getFullYear()}
       </div>
     </div>
   );
