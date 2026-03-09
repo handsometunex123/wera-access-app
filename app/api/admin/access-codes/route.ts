@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
       ? {
           OR: [
             { code: { contains: search, mode: Prisma.QueryMode.insensitive } },
-            { purpose: { contains: search, mode: Prisma.QueryMode.insensitive } },
             {
               createdBy: {
                 is: {
