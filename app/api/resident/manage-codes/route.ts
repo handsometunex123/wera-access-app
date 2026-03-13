@@ -1,26 +1,68 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import QRCode from "qrcode";
 import { getServerSession } from "@/lib/getServerSession";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession();
   const userId = (session?.user as { id?: string })?.id;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const createdById = userId;
-  // Fetch all codes for this resident, not deleted, order by most recent
-  const codes = await prisma.accessCode.findMany({
-    where: { createdById },
-    orderBy: { createdAt: "desc" },
-  });
-  // Generate QR for each code
+  const url = req.nextUrl;
+  const page = Math.max(1, Number(url.searchParams.get("page") || "1"));
+  const pageSize = Math.max(1, Math.min(50, Number(url.searchParams.get("pageSize") || "10")));
+  const skip = (page - 1) * pageSize;
+
+  const [codes, total, residentTotal, adminTotal, residentStatus, adminStatus] = await Promise.all([
+    prisma.accessCode.findMany({
+      where: { createdById },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+    }),
+    prisma.accessCode.count({ where: { createdById } }),
+    prisma.accessCode.count({ where: { createdById, NOT: { type: "ADMIN" } } }),
+    prisma.accessCode.count({ where: { createdById, type: "ADMIN" } }),
+    prisma.accessCode.groupBy({
+      by: ["status"],
+      where: { createdById, NOT: { type: "ADMIN" } },
+      _count: { _all: true },
+    }),
+    prisma.accessCode.groupBy({
+      by: ["status"],
+      where: { createdById, type: "ADMIN" },
+      _count: { _all: true },
+    }),
+  ]);
+
   const codesWithQr = await Promise.all(
-    codes.map(async code => ({
+    codes.map(async (code) => ({
       ...code,
       qr: await QRCode.toDataURL(`CODE:${code.code}`, { width: 96 }),
-    }))
+    })),
   );
-  return NextResponse.json({ codes: codesWithQr });
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const residentStatusCounts = residentStatus.reduce<Record<string, number>>((acc, row) => {
+    acc[row.status] = row._count._all;
+    return acc;
+  }, {});
+
+  const adminStatusCounts = adminStatus.reduce<Record<string, number>>((acc, row) => {
+    acc[row.status] = row._count._all;
+    return acc;
+  }, {});
+
+  return NextResponse.json({
+    codes: codesWithQr,
+    total,
+    page,
+    pageSize,
+    totalPages,
+    totals: { resident: residentTotal, admin: adminTotal },
+    statusCounts: { resident: residentStatusCounts, admin: adminStatusCounts },
+  });
 }
 
 export async function POST(req: Request) {

@@ -27,6 +27,16 @@ type User = {
   rejectionReason?: string | null;
   mainResidentId?: string;
   awaitingSetup?: boolean; // Only for dependants
+  canGenerateAdminCode?: boolean | null;
+};
+
+type PaymentSummary = {
+  id: string;
+  amount: number;
+  status: string;
+  details?: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 
@@ -53,33 +63,41 @@ export default function AdminUsersPage() {
   const [approvingUserId, setApprovingUserId] = useState<string | null>(null);
   const [rejectingUserId, setRejectingUserId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [paymentUser, setPaymentUser] = useState<User | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentSummary[]>([]);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [enablingAdminCode, setEnablingAdminCode] = useState(false);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const notify = useNotify();
 
-  const fetchUsers = React.useCallback(async (pageOverride: number, pageSizeOverride: number) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: String(pageOverride),
-        pageSize: String(pageSizeOverride),
-      });
-      const res = await fetch(`/api/admin/users?${params}`);
-      const data = await res.json();
-      if (Array.isArray(data.users)) {
-        setUsers(data.users);
-        setTotal(data.total);
-      } else {
-        setUsers([]);
-        setTotal(0);
-        notify(data.error || "Failed to load users", "error");
+  const fetchUsers = React.useCallback(
+    async (pageOverride: number, pageSizeOverride: number) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: String(pageOverride),
+          pageSize: String(pageSizeOverride),
+        });
+        const res = await fetch(`/api/admin/users?${params}`);
+        const data = await res.json();
+        if (Array.isArray(data.users)) {
+          setUsers(data.users);
+          setTotal(data.total);
+        } else {
+          setUsers([]);
+          setTotal(0);
+          notify(data.error || "Failed to load users", "error");
+        }
+      } catch {
+        notify("Failed to load users", "error");
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      notify("Failed to load users", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [notify]);
+    },
+    [notify],
+  );
 
   // Debounced effect for pagination; fetchUsers is stable via useCallback
   useEffect(() => {
@@ -90,7 +108,7 @@ export default function AdminUsersPage() {
     return () => {
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     };
-  }, [page, pageSize, fetchUsers]);
+  }, [page, pageSize]);
 
   useEffect(() => {
     const rawStatus = (searchParams?.get("status") || "").toUpperCase();
@@ -165,6 +183,97 @@ export default function AdminUsersPage() {
     }
   };
 
+  const openPaymentModal = async (user: User) => {
+    setPaymentUser(user);
+    setPaymentHistory([]);
+    setPaymentError(null);
+    setPaymentLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/payment-history`);
+      const data = await res.json();
+      if (!res.ok) {
+        notify(data.error || "Failed to load payment history", "error");
+        setPaymentError(data.error || "Failed to load payment history");
+        return;
+      }
+      setPaymentHistory(Array.isArray(data.requests) ? data.requests : []);
+    } catch {
+      const msg = "Failed to load payment history";
+      setPaymentError(msg);
+      notify(msg, "error");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const closePaymentModal = () => {
+    setPaymentUser(null);
+    setPaymentHistory([]);
+    setPaymentError(null);
+    setEnablingAdminCode(false);
+  };
+
+  const handleEnableAdminCode = async () => {
+    if (!paymentUser) return;
+    setEnablingAdminCode(true);
+    try {
+      const res = await fetch(`/api/admin/main-residents/${paymentUser.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ canGenerateAdminCode: true, adminCodeDisabledReason: null }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        notify(data.error || "Failed to enable admin code rights", "error");
+        return;
+      }
+      notify(`Admin code rights enabled for ${data.fullName || paymentUser.fullName}`, "success");
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === paymentUser.id ? { ...u, canGenerateAdminCode: true } : u,
+        ),
+      );
+      closePaymentModal();
+    } catch {
+      notify("Failed to enable admin code rights", "error");
+    } finally {
+      setEnablingAdminCode(false);
+    }
+  };
+
+  const handleDisableAdminCode = async (user: User) => {
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        `Are you sure you want to revoke admin code rights for ${user.fullName || "this resident"}?`,
+      );
+      if (!confirmed) return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/main-residents/${user.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ canGenerateAdminCode: false, adminCodeDisabledReason: null }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        notify(data.error || "Failed to revoke admin code rights", "error");
+        return;
+      }
+      notify(
+        `Admin code rights revoked for ${data.fullName || user.fullName || "resident"}`,
+        "success",
+      );
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id ? { ...u, canGenerateAdminCode: false } : u,
+        ),
+      );
+    } catch {
+      notify("Failed to revoke admin code rights", "error");
+    }
+  };
+
   const handleRejectPending = async () => {
     if (!rejectingUserId) return;
     if (!rejectionReason.trim()) {
@@ -173,7 +282,7 @@ export default function AdminUsersPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/pending-users/${rejectingUserId}/reject`, {
+      const res = await fetch(`/api/admin/profile-update-requests/${rejectingUserId}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rejectionReason: rejectionReason.trim() }),
@@ -184,6 +293,7 @@ export default function AdminUsersPage() {
         notify("User rejected successfully", "success");
         setRejectingUserId(null);
         setRejectionReason("");
+        setShowRejectModal(false);
         fetchUsers(page, pageSize);
       }
     } catch {
@@ -192,6 +302,8 @@ export default function AdminUsersPage() {
       setLoading(false);
     }
   };
+
+  const [showRejectModal, setShowRejectModal] = useState(false);
 
   const filteredUsers = users.filter(user => {
     const matchesSearch =
@@ -326,7 +438,24 @@ export default function AdminUsersPage() {
 
         {/* Mobile: cards */}
         <div className="space-y-3 md:hidden">
-          {filteredUsers.map((user) => {
+          {loading
+            ? Array.from({ length: 3 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-white/90 p-3 shadow-sm animate-pulse"
+                >
+                  <div className="h-9 w-9 rounded-full bg-emerald-100" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-32 rounded-full bg-emerald-50" />
+                    <div className="h-2.5 w-40 rounded-full bg-emerald-50" />
+                    <div className="flex gap-2 pt-1">
+                      <div className="h-4 w-16 rounded-full bg-emerald-50" />
+                      <div className="h-4 w-20 rounded-full bg-emerald-50" />
+                    </div>
+                  </div>
+                </div>
+              ))
+            : filteredUsers.map((user) => {
             const initials =
               (user.fullName
                 ?.split(" ")
@@ -335,6 +464,13 @@ export default function AdminUsersPage() {
                 .join("")
                 .slice(0, 2)
                 .toUpperCase() || "U");
+
+            const profileImageSrc = (user.profileImage || "").trim();
+            const hasValidProfileImage =
+              !!profileImageSrc &&
+              (profileImageSrc.startsWith("http://") ||
+                profileImageSrc.startsWith("https://") ||
+                profileImageSrc.startsWith("/"));
 
             const isSelf = user.id === loggedInUserId;
             const isDependantAwaiting = user.role === "DEPENDANT" && user.awaitingSetup;
@@ -346,9 +482,9 @@ export default function AdminUsersPage() {
                 className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-white/90 p-3 shadow-sm"
               >
                 <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-[11px] font-semibold text-emerald-900">
-                  {user.profileImage ? (
+                  {hasValidProfileImage ? (
                     <Image
-                      src={user.profileImage}
+                      src={profileImageSrc}
                       alt={user.fullName || "User profile"}
                       width={36}
                       height={36}
@@ -441,14 +577,39 @@ export default function AdminUsersPage() {
                         </button>
                       </>
                     ) : (
-                      <button
-                        type="button"
-                        className="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-40"
-                        onClick={() => handleAction(user.id, "disable")}
-                        disabled={isSelf || isRejected}
-                      >
-                        Disable
-                      </button>
+                      <>
+                        {(user.status === "APPROVED" && (user.role === "MAIN_RESIDENT" || user.role === "DEPENDANT" || user.role === "ESTATE_GUARD")) && (
+                          <button
+                            type="button"
+                            className="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-40"
+                            onClick={() => handleAction(user.id, "disable")}
+                            disabled={isSelf || isRejected}
+                          >
+                            Disable
+                          </button>
+                        )}
+                        {user.role === "MAIN_RESIDENT" && user.status === "APPROVED" && (
+                          user.canGenerateAdminCode ? (
+                            <>
+                              <button
+                                type="button"
+                                className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100"
+                                onClick={() => handleDisableAdminCode(user)}
+                              >
+                                Revoke admin codes
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100"
+                              onClick={() => openPaymentModal(user)}
+                            >
+                              Allow admin codes
+                            </button>
+                          )
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -477,7 +638,39 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-emerald-50">
-                  {filteredUsers.map((user) => {
+                  {loading
+                    ? Array.from({ length: 6 }).map((_, idx) => (
+                        <tr key={idx} className="animate-pulse">
+                          <td className="px-4 py-2.5 align-middle">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-7 w-7 rounded-full bg-emerald-100" />
+                              <div className="space-y-1">
+                                <div className="h-3 w-32 rounded-full bg-emerald-50" />
+                                <div className="h-2.5 w-40 rounded-full bg-emerald-50" />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 align-middle">
+                            <div className="h-3 w-24 rounded-full bg-emerald-50" />
+                          </td>
+                          <td className="px-4 py-2.5 align-middle">
+                            <div className="h-4 w-24 rounded-full bg-emerald-50" />
+                          </td>
+                          <td className="px-4 py-2.5 align-middle">
+                            <div className="space-y-1">
+                              <div className="h-4 w-20 rounded-full bg-emerald-50" />
+                              <div className="h-3 w-40 rounded-full bg-emerald-50" />
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 align-middle text-right">
+                            <div className="flex justify-end gap-2">
+                              <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                              <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    : filteredUsers.map((user) => {
                     const isSelf = user.id === loggedInUserId;
                     const isDependantAwaiting = user.role === "DEPENDANT" && user.awaitingSetup;
                     const isRejected = user.status === "REVOKED" || user.status === "BLOCKED";
@@ -491,14 +684,21 @@ export default function AdminUsersPage() {
                         .slice(0, 2)
                         .toUpperCase() || "U");
 
+                    const profileImageSrc = (user.profileImage || "").trim();
+                    const hasValidProfileImage =
+                      !!profileImageSrc &&
+                      (profileImageSrc.startsWith("http://") ||
+                        profileImageSrc.startsWith("https://") ||
+                        profileImageSrc.startsWith("/"));
+
                     return (
                       <tr key={user.id} className="transition hover:bg-emerald-50/60">
                         <td className="px-4 py-2.5 align-middle">
                           <div className="flex items-center gap-2.5">
                             <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-[10px] font-semibold text-emerald-900">
-                              {user.profileImage ? (
+                              {hasValidProfileImage ? (
                                 <Image
-                                  src={user.profileImage}
+                                  src={profileImageSrc}
                                   alt={user.fullName || "User profile"}
                                   width={28}
                                   height={28}
@@ -600,14 +800,39 @@ export default function AdminUsersPage() {
                                 </button>
                               </>
                             ) : (
-                              <button
-                                type="button"
-                                className="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-40"
-                                onClick={() => handleAction(user.id, "disable")}
-                                disabled={isSelf || isRejected}
-                              >
-                                Disable
-                              </button>
+                              <>
+                                {(user.status === "APPROVED" && (user.role === "MAIN_RESIDENT" || user.role === "DEPENDANT" || user.role === "ESTATE_GUARD")) && (
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-40"
+                                    onClick={() => handleAction(user.id, "disable")}
+                                    disabled={isSelf || isRejected}
+                                  >
+                                    Disable
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {user.role === "MAIN_RESIDENT" && user.status === "APPROVED" && (
+                              user.canGenerateAdminCode ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100"
+                                    onClick={() => handleDisableAdminCode(user)}
+                                  >
+                                    Revoke admin codes
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100"
+                                  onClick={() => openPaymentModal(user)}
+                                >
+                                  Allow admin codes
+                                </button>
+                              )
                             )}
                             {isDependantAwaiting && (
                               <button
@@ -688,6 +913,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
       </section>
+
       {/* Passcode Modal for sensitive actions */}
       {showPasscodeModal && (
         <PasscodeModal
@@ -785,6 +1011,140 @@ export default function AdminUsersPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {paymentUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2">
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-4 shadow-lg sm:p-6">
+            <button
+              type="button"
+              className="absolute right-3 top-3 text-lg text-emerald-900"
+              onClick={closePaymentModal}
+              aria-label="Close payment history dialog"
+            >
+              &times;
+            </button>
+            <div className="mb-3 flex flex-col gap-1">
+              <h2 className="text-sm font-semibold text-emerald-950 tracking-tight">
+                Admin code eligibility
+              </h2>
+              <p className="text-[11px] text-emerald-700">
+                Review {paymentUser.fullName}&apos;s payment history before allowing them to generate admin codes.
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-50 bg-emerald-50/40 p-3 sm:p-4 max-h-80 overflow-y-auto">
+              {paymentLoading && (
+                <div className="space-y-2 text-[11px] text-emerald-800">
+                  <div className="h-2.5 w-40 rounded-full bg-emerald-100/70" />
+                  <div className="h-2.5 w-32 rounded-full bg-emerald-100/70" />
+                  <div className="h-2.5 w-52 rounded-full bg-emerald-100/70" />
+                </div>
+              )}
+              {!paymentLoading && paymentError && (
+                <div className="text-[11px] font-medium text-rose-700">{paymentError}</div>
+              )}
+              {!paymentLoading && !paymentError && paymentHistory.length === 0 && (
+                <div className="text-[11px] text-emerald-800">
+                  No payment requests found for this resident. They have no recorded debts.
+                </div>
+              )}
+              {!paymentLoading && !paymentError && paymentHistory.length > 0 && (
+                <ul className="space-y-2 text-[11px] text-emerald-900">
+                  {paymentHistory.map((req) => {
+                    const created = new Date(req.createdAt);
+                    const amountNaira = `₦${Number(req.amount || 0).toLocaleString("en-NG", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}`;
+                    const isPending = req.status === "PENDING";
+                    const isPaid = req.status === "PAID";
+                    const isRejected = req.status === "REJECTED";
+                    return (
+                      <li
+                        key={req.id}
+                        className="flex flex-col gap-1 rounded-lg border border-emerald-100 bg-white px-2.5 py-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-emerald-950">{amountNaira}</span>
+                          <span
+                            className={
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold " +
+                              (isPaid
+                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                : isPending
+                                ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                : isRejected
+                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                : "bg-slate-50 text-slate-700 border border-slate-200")
+                            }
+                          >
+                            {isPaid ? "Paid" : isPending ? "Pending" : isRejected ? "Rejected" : req.status}
+                          </span>
+                        </div>
+                        {req.details && (
+                          <p className="text-[10px] text-emerald-800 line-clamp-2" title={req.details || undefined}>
+                            {req.details}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-emerald-700/80">
+                          {created.toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}{" "}
+                          at {created.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            {(() => {
+              const hasPending = paymentHistory.some((r) => r.status === "PENDING");
+              const totalPending = paymentHistory
+                .filter((r) => r.status === "PENDING")
+                .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+              const pendingLabel = `₦${totalPending.toLocaleString("en-NG", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`;
+              const canEnable = !paymentLoading && !hasPending;
+              return (
+                <div className="mt-3 flex flex-col gap-2">
+                  <div className="text-[10px] text-emerald-800">
+                    {hasPending ? (
+                      <span>
+                        This resident still has outstanding requests totalling <span className="font-semibold">{pendingLabel}</span>. They must settle all pending payments before admin code access can be granted.
+                      </span>
+                    ) : (
+                      <span>
+                        All recorded payment requests are settled. You can safely allow this resident to generate admin codes.
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-800 shadow-sm hover:bg-emerald-50"
+                      onClick={closePaymentModal}
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center rounded-full bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-emerald-50 shadow-sm hover:bg-emerald-800 disabled:opacity-40"
+                      onClick={handleEnableAdminCode}
+                      disabled={!canEnable || enablingAdminCode}
+                    >
+                      {enablingAdminCode ? "Enabling..." : "Allow admin codes"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

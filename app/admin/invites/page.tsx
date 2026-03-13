@@ -47,12 +47,12 @@ export default function AdminInvitesPage() {
         setLoading(false);
       }
     },
-    [notify]
+    [notify],
   );
 
   useEffect(() => {
     fetchInvites(page, pageSize);
-  }, [page, pageSize, fetchInvites]);
+  }, [page, pageSize]);
   const handleAction = async (id: string, action: string) => {
     try {
       const res = await fetch("/api/admin/invites", {
@@ -508,7 +508,74 @@ export default function AdminInvitesPage() {
           </div>
         </div>
 
-        {loading && <div className="text-[11px] text-emerald-800">Loading...</div>}
+        {loading && (
+          <div className="space-y-3">
+            {/* Mobile skeleton cards */}
+            <div className="space-y-3 md:hidden">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-emerald-100 bg-white/90 p-3 shadow-sm animate-pulse"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="h-3 w-40 rounded-full bg-emerald-50" />
+                      <div className="h-2.5 w-32 rounded-full bg-emerald-50" />
+                      <div className="h-4 w-20 rounded-full bg-emerald-50" />
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                      <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop skeleton table */}
+            <div className="hidden md:block">
+              <div className="overflow-hidden rounded-xl border border-emerald-50 bg-white/80 animate-pulse">
+                <div className="max-h-[420px] overflow-y-auto">
+                  <table className="min-w-full text-xs text-emerald-950">
+                    <thead className="bg-emerald-50/80 text-[11px] uppercase tracking-wide text-emerald-700">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-semibold">Email</th>
+                        <th className="px-4 py-2 text-left font-semibold">Role</th>
+                        <th className="px-4 py-2 text-left font-semibold">Status</th>
+                        <th className="px-4 py-2 text-left font-semibold">Expires</th>
+                        <th className="px-4 py-2 text-right font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-emerald-50">
+                      {Array.from({ length: 6 }).map((_, idx) => (
+                        <tr key={idx}>
+                          <td className="px-4 py-2.5 align-middle">
+                            <div className="h-3 w-40 rounded-full bg-emerald-50" />
+                          </td>
+                          <td className="px-4 py-2.5 align-middle">
+                            <div className="h-3 w-24 rounded-full bg-emerald-50" />
+                          </td>
+                          <td className="px-4 py-2.5 align-middle">
+                            <div className="h-4 w-20 rounded-full bg-emerald-50" />
+                          </td>
+                          <td className="px-4 py-2.5 align-middle">
+                            <div className="h-3 w-32 rounded-full bg-emerald-50" />
+                          </td>
+                          <td className="px-4 py-2.5 align-middle text-right">
+                            <div className="flex justify-end gap-2">
+                              <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                              <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {!loading && filteredInvites.length === 0 && (
           <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/40 px-4 py-6 text-center text-[11px] text-emerald-800">

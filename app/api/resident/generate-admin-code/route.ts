@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const { purpose, guestName, validityMinutes, itemDetails, itemImageUrl } = await req.json();
+    const { purpose, guestName, validityMinutes, usageType, itemDetails, itemImageUrl } = await req.json();
     const self = await prisma.user.findUnique({ where: { id: user.id } });
     if (!self) return NextResponse.json({ error: "User not found" }, { status: 404 });
     if (!self.canGenerateAdminCode) {
@@ -29,6 +29,10 @@ export async function POST(req: NextRequest) {
     if (!purpose || !validityMinutes) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
+
+    // Allow resident-generated admin codes to be single-use with a configurable usageType.
+    // Default to ENTRY_ONLY if an unsupported or missing usageType is provided.
+    const effectiveUsageType = usageType === "ENTRY_AND_EXIT" ? "ENTRY_AND_EXIT" : "ENTRY_ONLY";
     // Generate unique 6-digit code
     let code = "";
     let exists = true;
@@ -42,7 +46,7 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const inviteEnd = new Date(now.getTime() + validityMinutes * 60000);
     const qrCodeUrl = await QRCode.toDataURL(code);
-    // For resident-generated admin codes, enforce single-use entry-only behavior
+    // For resident-generated admin codes, enforce single-use behavior (one scan only)
     const limitedUsageLimit = 1;
 
     const accessCode = await prisma.accessCode.create({
@@ -56,7 +60,7 @@ export async function POST(req: NextRequest) {
         usageCount: 0,
         entryCount: 0,
         exitCount: 0,
-        usageType: "ENTRY_ONLY",
+			usageType: effectiveUsageType,
         status: "ACTIVE",
         qrCodeUrl,
         purpose,

@@ -286,8 +286,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                           key={u.id}
                           type="button"
                           onClick={() => {
-                            const label = u.fullName || u.email || "";
-                            setSearchTerm(label);
+                            setSearchTerm("");
                             setSearchResults([]);
                             router.push(`${pathname}?residentId=${u.id}`);
                           }}
@@ -340,12 +339,27 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                       )}
                       {!notificationsLoading && !notificationsError && notifications.length > 0 && (
                         <ul className="space-y-2">
-                          {notifications.map((n) => (
+                          {notifications
+                            .slice()
+                            .sort((a, b) => {
+                              if (a.read === b.read) {
+                                return (
+                                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                                );
+                              }
+                              return a.read ? 1 : -1;
+                            })
+                            .map((n) => (
                             <li key={n.id}>
                               <button
                                 type="button"
                                 onClick={() => openHeaderNotification(n)}
-                                className="flex w-full items-start gap-2 rounded-lg bg-emerald-50/60 px-2.5 py-2 text-left hover:bg-emerald-100/80"
+                                className={
+                                  "flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition " +
+                                  (n.read
+                                    ? "bg-white hover:bg-emerald-50"
+                                    : "bg-emerald-50/60 hover:bg-emerald-100/80")
+                                }
                               >
                                 <span
                                   className={
@@ -378,7 +392,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                       )}
                     </div>
                     <div className="flex items-center justify-between border-t border-emerald-50 px-3 py-2">
-                      <span className="text-[11px] text-slate-500">Showing latest {notifications.length} of 10</span>
+                      <span className="text-[11px] text-slate-500">
+                        Showing {notifications.filter((n) => !n.read).length} unread of 10
+                      </span>
                       <Link
                         href="/admin/notifications"
                         className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"

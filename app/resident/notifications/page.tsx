@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import SkeletonLoader from "@/components/SkeletonLoader";
 import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
 import { BellAlertIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
@@ -9,6 +10,7 @@ interface Notification {
   subtitle?: string;
   createdAt: string;
   type: string;
+  read?: boolean;
 }
 
 export default function ResidentNotificationsPage() {
@@ -74,7 +76,7 @@ export default function ResidentNotificationsPage() {
         </div>
 
         {loading ? (
-          <div className="text-[11px] text-emerald-800">Loading...</div>
+          <SkeletonLoader className="w-full" count={3} variant="card" />
         ) : error ? (
           <div className="text-[11px] font-semibold text-red-700">{error}</div>
         ) : notifications.length === 0 ? (
@@ -87,7 +89,10 @@ export default function ResidentNotificationsPage() {
               {notifications.map((n) => (
                 <li
                   key={n.id}
-                  className="flex items-start justify-between gap-3 rounded-2xl border border-emerald-100 bg-white/90 p-3 shadow-sm"
+                  className={
+                    "flex items-start justify-between gap-3 rounded-2xl border border-emerald-100 p-3 shadow-sm " +
+                    (n.read ? "bg-white/90" : "bg-emerald-50/80")
+                  }
                 >
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold text-[13px] text-emerald-950 truncate">{n.title}</div>

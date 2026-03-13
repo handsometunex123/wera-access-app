@@ -209,7 +209,54 @@ export default function AdminNotificationsPage() {
             )}
           </div>
         </div>
-        {loading && <div className="text-[11px] text-emerald-800">Loading...</div>}
+        {loading && (
+          <div className="mb-3 space-y-3">
+            {/* Mobile skeleton notifications */}
+            <div className="space-y-3 md:hidden">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start justify-between gap-3 rounded-2xl border border-emerald-100 bg-white/90 p-3 shadow-sm animate-pulse"
+                >
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="h-3 w-32 rounded-full bg-emerald-50" />
+                    <div className="h-2.5 w-40 rounded-full bg-emerald-50" />
+                    <div className="h-2.5 w-48 rounded-full bg-emerald-50" />
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="h-5 w-16 rounded-full bg-emerald-50" />
+                    <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop skeleton rows */}
+            <div className="hidden md:block">
+              <div className="overflow-hidden rounded-xl border border-emerald-50 bg-white/80">
+                <div className="max-h-[480px] overflow-y-auto">
+                  <div className="divide-y divide-emerald-50">
+                    {Array.from({ length: 6 }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between px-4 py-2.5 text-xs animate-pulse"
+                      >
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3 w-40 rounded-full bg-emerald-50" />
+                          <div className="h-2.5 w-32 rounded-full bg-emerald-50" />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                          <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {error && <div className="mb-2 text-[11px] font-semibold text-red-700">{error}</div>}
 
         {/* Mobile: stacked notifications (blur unread content until opened) */}

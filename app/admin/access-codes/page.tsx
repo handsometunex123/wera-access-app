@@ -1,5 +1,6 @@
 "use client";
 import React, { Suspense, useEffect, useMemo, useState } from "react";
+import SkeletonLoader from "@/components/SkeletonLoader";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { KeyIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, PhotoIcon } from "@heroicons/react/24/outline";
@@ -223,7 +224,16 @@ function AdminAccessCodesPageInner() {
           </div>
         </div>
 
-        {loading && <div className="text-[11px] text-emerald-800">Loading...</div>}
+        {loading && (
+          <div className="mb-3">
+            <div className="md:hidden">
+              <SkeletonLoader className="w-full" count={3} variant="card" />
+            </div>
+            <div className="hidden md:block">
+              <SkeletonLoader className="w-full" count={6} variant="card" />
+            </div>
+          </div>
+        )}
         {error && <div className="mb-2 text-[11px] font-semibold text-red-700">{error}</div>}
 
         {/* Mobile cards */}

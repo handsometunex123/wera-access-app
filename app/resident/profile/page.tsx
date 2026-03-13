@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
+import SkeletonLoader from "@/components/SkeletonLoader";
 import { signOut } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -156,7 +157,7 @@ export default function ResidentProfilePage() {
     setPending(false);
   }
 
-  if (loading) return <div className="p-8 text-[11px] text-emerald-800">Loading profile...</div>;
+  if (loading) return <SkeletonLoader className="w-full max-w-4xl mx-auto mt-8" count={4} variant="card" />;
   if (error) return <div className="p-8 text-[11px] font-semibold text-red-800">{error}</div>;
   if (!profile) return null;
 

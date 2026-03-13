@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import SkeletonLoader from "@/components/SkeletonLoader";
 import { PhoneIcon } from "@heroicons/react/24/outline";
 import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
 
@@ -41,7 +42,7 @@ export default function ResidentEstateContactsPage() {
           </div>
         </div>
         {loading ? (
-          <div className="text-[11px] text-emerald-800">Loading...</div>
+          <SkeletonLoader className="w-full" count={2} variant="card" />
         ) : error ? (
           <div className="text-[11px] font-semibold text-red-700">{error}</div>
         ) : contacts.length === 0 ? (

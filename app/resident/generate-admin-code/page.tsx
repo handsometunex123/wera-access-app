@@ -16,7 +16,6 @@ function formatShortDate(dateString?: string) {
 }
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
 import { toast } from "react-hot-toast";
 import { ArrowDownTrayIcon, QrCodeIcon } from "@heroicons/react/24/solid";
@@ -116,21 +115,20 @@ export default function GenerateAdminCodePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          usageType: "ENTRY_ONLY",
-          usageLimit: 1,
+		  // Admin codes are always single-use; usageLimit is fixed at 1
+		  usageLimit: 1,
           itemDetails,
           itemImageUrl,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        if (res.status === 403 && data.reason) {
+        if (data.reason) {
           setError(`${data.error} Reason: ${data.reason}`);
         } else {
           setError(data.error || "Failed to generate admin code");
         }
-      }
-      else {
+      } else {
         setResult(data.accessCode);
         setShowResultModal(true);
       }
@@ -182,7 +180,7 @@ export default function GenerateAdminCodePage() {
               Generate admin access code
             </h1>
             <p className="text-[11px] text-emerald-700">
-              Create a one-time or limited-use code for deliveries and special access.
+		      Create a single-use admin code for deliveries and special access. You can choose whether guards record entry only or both entry and exit.
             </p>
           </div>
         </div>
@@ -191,7 +189,7 @@ export default function GenerateAdminCodePage() {
           <div className="mb-3">
             <h2 className="text-sm font-semibold text-emerald-950 tracking-tight">Code details</h2>
             <p className="text-[11px] text-emerald-700">
-              Fill in the request details and how this admin code should behave.
+		      Fill in the request details. Admin codes here are single-use; you can choose entry-only or entry & exit within the validity window.
             </p>
           </div>
 
@@ -267,10 +265,40 @@ export default function GenerateAdminCodePage() {
                     1x
                   </span>
                   <div className="flex flex-col">
-                    <span className="text-[11px] font-semibold">One time only</span>
-                    <span className="text-[10px] text-emerald-700">Single scan • Entry only</span>
+                    <span className="text-[11px] font-semibold">Single-use code</span>
+                    <span className="text-[10px] text-emerald-700">
+                {form.usageType === "ENTRY_AND_EXIT"
+                  ? "One scan • Entry and exit"
+                  : "One scan • Entry only"}
+                    </span>
                   </div>
                 </div>
+            <div className="mt-1 inline-flex rounded-full bg-emerald-50/70 p-1 text-[11px] text-emerald-900 border border-emerald-100 w-full max-w-xs">
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, usageType: "ENTRY_ONLY" }))}
+                className={
+                  "flex-1 rounded-full px-3 py-1 font-semibold transition " +
+                  (form.usageType === "ENTRY_ONLY"
+                    ? "bg-emerald-700 text-emerald-50 shadow-sm"
+                    : "bg-transparent text-emerald-800 hover:bg-emerald-100")
+                }
+              >
+                Entry only
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, usageType: "ENTRY_AND_EXIT" }))}
+                className={
+                  "flex-1 rounded-full px-3 py-1 font-semibold transition " +
+                  (form.usageType === "ENTRY_AND_EXIT"
+                    ? "bg-emerald-700 text-emerald-50 shadow-sm"
+                    : "bg-transparent text-emerald-800 hover:bg-emerald-100")
+                }
+              >
+                Entry & exit
+              </button>
+            </div>
               </div>
             </div>
 
@@ -334,8 +362,7 @@ export default function GenerateAdminCodePage() {
 
             <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[10px] text-emerald-700">
-                Admin codes are meant for special access and can be scanned by guards within the
-                selected window.
+		        Admin codes are single-use and meant for special access within the selected window. Choose whether guards mark only entry or both entry and exit.
               </p>
               <button
                 type="submit"
@@ -394,8 +421,9 @@ export default function GenerateAdminCodePage() {
                   className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm hover:bg-slate-100"
                   onClick={async () => {
                     if (
-                      navigator.canShare &&
-                      window.Blob &&
+                      typeof navigator !== "undefined" &&
+                      typeof navigator.canShare === "function" &&
+                      typeof Blob !== "undefined" &&
                       result.qrCodeUrl &&
                       result.qrCodeUrl.startsWith("data:image")
                     ) {
@@ -502,8 +530,9 @@ export default function GenerateAdminCodePage() {
                     className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-800 shadow-sm ring-1 ring-emerald-100 hover:bg-emerald-50"
                     onClick={async () => {
                       if (
-                        navigator.canShare &&
-                        (window as any).Blob &&
+                        typeof navigator !== "undefined" &&
+                        typeof navigator.canShare === "function" &&
+                        typeof Blob !== "undefined" &&
                         result.qrCodeUrl &&
                         result.qrCodeUrl.startsWith("data:image")
                       ) {

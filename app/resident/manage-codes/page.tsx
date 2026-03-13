@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import SkeletonLoader from "@/components/SkeletonLoader";
 import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
 import Image from "next/image";
 import { ArrowDownTrayIcon, XMarkIcon } from "@heroicons/react/24/solid";
@@ -31,35 +32,82 @@ export default function ResidentManageCodesPage() {
   const [detailsCode, setDetailsCode] = useState<AccessCode | null>(null);
   const [activeTab, setActiveTab] = useState<"RESIDENT" | "ADMIN">("RESIDENT");
   const [statusFilter, setStatusFilter] = useState<"ALL" | string>("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [residentTotal, setResidentTotal] = useState(0);
+  const [adminTotal, setAdminTotal] = useState(0);
+  const [residentStatusCounts, setResidentStatusCounts] = useState<Record<string, number>>({});
+  const [adminStatusCounts, setAdminStatusCounts] = useState<Record<string, number>>({});
+  const pageSize = 10;
 
-  useEffect(() => {
-    const fetchCodes = async () => {
+  const fetchCodes = React.useCallback(
+    async (page = 1) => {
       setLoading(true);
       setError("");
       try {
-        const res = await fetch("/api/resident/manage-codes");
+        const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+        const res = await fetch(`/api/resident/manage-codes?${params.toString()}`);
         const data = await res.json();
         if (!res.ok) setError(data.error || "Failed to load codes");
         else {
-          // Separate admin codes from regular codes
-          const admin = (data.codes || []).filter((c: AccessCode) => c.type === "ADMIN");
-          const regular = (data.codes || []).filter((c: AccessCode) => c.type !== "ADMIN");
+          const allCodes: AccessCode[] = data.codes || [];
+          const admin = allCodes.filter((c) => c.type === "ADMIN");
+          const regular = allCodes.filter((c) => c.type !== "ADMIN");
           setAdminCodes(admin);
           setCodes(regular);
+          setCurrentPage(data.page || page);
+          if (data.totals) {
+            setResidentTotal(data.totals.resident ?? 0);
+            setAdminTotal(data.totals.admin ?? 0);
+          } else {
+            // Fallback: derive totals from current page when totals are not provided
+            setResidentTotal(regular.length);
+            setAdminTotal(admin.length);
+          }
+          if (data.statusCounts) {
+            setResidentStatusCounts(data.statusCounts.resident ?? {});
+            setAdminStatusCounts(data.statusCounts.admin ?? {});
+          } else {
+            // Fallback: derive simple counts from current page if needed
+            const residentCounts: Record<string, number> = {};
+            const adminCounts: Record<string, number> = {};
+            regular.forEach((c) => {
+              residentCounts[c.status] = (residentCounts[c.status] || 0) + 1;
+            });
+            admin.forEach((c) => {
+              adminCounts[c.status] = (adminCounts[c.status] || 0) + 1;
+            });
+            setResidentStatusCounts(residentCounts);
+            setAdminStatusCounts(adminCounts);
+          }
         }
       } catch {
         setError("Failed to load codes");
       } finally {
         setLoading(false);
       }
-    };
-    fetchCodes();
-  }, []);
+    },
+    [pageSize],
+  );
+
+  useEffect(() => {
+    void fetchCodes(1);
+  }, [fetchCodes]);
 
   const currentList = activeTab === "ADMIN" ? adminCodes : codes;
   const filteredList = statusFilter === "ALL" ? currentList : currentList.filter((code) => code.status === statusFilter);
-  const totalCount = currentList.length;
-  const statusCounts = STATUS_ORDER.map((status) => [status, currentList.filter((code) => code.status === status).length] as const);
+  const totalCount = activeTab === "ADMIN" ? adminTotal : residentTotal;
+  const statusCountsSource = activeTab === "ADMIN" ? adminStatusCounts : residentStatusCounts;
+  const statusCounts = STATUS_ORDER.map((status) => [status, statusCountsSource[status] || 0] as const);
+
+  const totalForView = (() => {
+    if (statusFilter === "ALL") {
+      return activeTab === "ADMIN" ? adminTotal : residentTotal;
+    }
+    const source = activeTab === "ADMIN" ? adminStatusCounts : residentStatusCounts;
+    return source[statusFilter] || 0;
+  })();
+
+  const viewTotalPages = Math.max(1, Math.ceil(totalForView / pageSize));
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4 md:space-y-6">
@@ -89,6 +137,8 @@ export default function ResidentManageCodesPage() {
                 onClick={() => {
                   setActiveTab("RESIDENT");
                   setStatusFilter("ALL");
+                  setCurrentPage(1);
+                  void fetchCodes(1);
                 }}
                 aria-label="Resident Codes Tab"
               >
@@ -103,6 +153,8 @@ export default function ResidentManageCodesPage() {
                 onClick={() => {
                   setActiveTab("ADMIN");
                   setStatusFilter("ALL");
+                  setCurrentPage(1);
+                  void fetchCodes(1);
                 }}
                 aria-label="Admin Codes Tab"
               >
@@ -114,7 +166,11 @@ export default function ResidentManageCodesPage() {
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setStatusFilter("ALL")}
+            onClick={() => {
+              setStatusFilter("ALL");
+              setCurrentPage(1);
+              void fetchCodes(1);
+            }}
             className={
               "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition " +
               (statusFilter === "ALL"
@@ -130,7 +186,11 @@ export default function ResidentManageCodesPage() {
             <button
               type="button"
               key={status}
-              onClick={() => setStatusFilter((prev) => (prev === status ? "ALL" : status))}
+              onClick={() => {
+                setStatusFilter((prev) => (prev === status ? "ALL" : status));
+                setCurrentPage(1);
+                void fetchCodes(1);
+              }}
               className={
                 "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition " +
                 (statusFilter === status
@@ -145,7 +205,7 @@ export default function ResidentManageCodesPage() {
           ))}
         </div>
         {loading ? (
-          <div className="text-center text-emerald-700">Loading...</div>
+          <SkeletonLoader className="w-full" count={3} variant="card" />
         ) : error ? (
           <div className="text-center text-red-700">{error}</div>
         ) : (
@@ -251,6 +311,27 @@ export default function ResidentManageCodesPage() {
             )}
           </>
         )}
+      </div>
+      <div className="w-full rounded-2xl border border-emerald-100 bg-white/80 shadow-sm px-4 py-2 flex items-center justify-between text-[11px] text-emerald-800">
+        <button
+          type="button"
+          onClick={() => currentPage > 1 && fetchCodes(currentPage - 1)}
+          disabled={currentPage <= 1 || loading}
+          className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-white px-3 py-1.5 font-medium hover:bg-emerald-50 disabled:opacity-40 disabled:hover:bg-white"
+        >
+          Prev
+        </button>
+        <span>
+          Page {currentPage} of {viewTotalPages}
+        </span>
+        <button
+          type="button"
+          onClick={() => currentPage < viewTotalPages && fetchCodes(currentPage + 1)}
+          disabled={currentPage >= viewTotalPages || loading}
+          className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-white px-3 py-1.5 font-medium hover:bg-emerald-50 disabled:opacity-40 disabled:hover:bg-white"
+        >
+          Next
+        </button>
       </div>
       {/* Details Modal */}
       {detailsCode && (

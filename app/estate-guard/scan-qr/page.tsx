@@ -6,19 +6,28 @@ import QrScanner from "../QrScanner";
 export default function ScanQrPage() {
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
 
   function handleQrScan(data: string) {
     if (data) {
       setScanResult(data);
       setScanError(null);
+      // Hide scanner after a successful scan
+      setIsScanning(false);
     } else {
       setScanError("Invalid QR code format.");
       setScanResult(null);
+      setIsScanning(false);
     }
   }
 
-  function handleQrError() {
-    setScanError("QR scan failed. Try again.");
+  function handleQrError(err?: unknown) {
+    const message =
+      err && typeof err === "object" && "name" in err && (err as { name?: string }).name === "AbortError"
+        ? "Unable to access camera. Check browser permissions and that no other app is using the camera, then try again."
+        : "QR scan failed. Try again.";
+    setScanError(message);
+    setIsScanning(false);
   }
 
   return (
@@ -34,7 +43,26 @@ export default function ScanQrPage() {
           Use your device camera to scan guest QR codes. Make sure the entire code is visible and well lit.
         </p>
         <div className="mb-6 flex flex-col items-center">
-          <QrScanner onScan={handleQrScan} onError={handleQrError} />
+          {!isScanning && (
+            <button
+              type="button"
+              className="px-6 py-3 rounded-full bg-emerald-700 text-white font-semibold shadow-md hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+              onClick={() => {
+                setScanError(null);
+                setScanResult(null);
+                setIsScanning(true);
+              }}
+            >
+              Scan code
+            </button>
+          )}
+          {isScanning && (
+            <QrScanner
+              onScan={handleQrScan}
+              onError={handleQrError}
+              onCancel={() => setIsScanning(false)}
+            />
+          )}
         </div>
         {scanResult && (
           <div className="text-center text-green-700 font-semibold text-sm md:text-base bg-green-50 border border-green-200 rounded-xl px-4 py-3 shadow-sm mb-3">

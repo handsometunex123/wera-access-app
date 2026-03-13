@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import SkeletonLoader from "@/components/SkeletonLoader";
 import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
 import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 
@@ -184,7 +185,7 @@ export default function ResidentSupportTicketsPage() {
         )}
 
         {loading ? (
-          <div className="text-[11px] text-emerald-800">Loading...</div>
+          <SkeletonLoader className="w-full" count={3} variant="card" />
         ) : error ? (
           <div className="text-[11px] font-semibold text-red-700">{error}</div>
         ) : tickets.length === 0 ? (

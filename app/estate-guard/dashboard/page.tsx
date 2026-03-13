@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { FaClipboardList, FaKey, FaQrcode, FaUserCircle } from "react-icons/fa";
+import { FaClipboardList, FaKey, FaQrcode, FaUserCircle, FaCheckCircle } from "react-icons/fa";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import QrScanner from "../QrScanner";
@@ -141,8 +141,7 @@ export default function EstateGuardDashboard() {
         setScanResult(data.message || "Code verified successfully.");
         setIsAdminCode(Boolean(data.isAdminCode));
         setScanCode("");
-
-        if (data.isAdminCode && data.codeDetails) {
+        if (data.codeDetails) {
           setAdminDetails({
             code: data.codeDetails.code,
             type: data.codeDetails.type,
@@ -182,14 +181,21 @@ export default function EstateGuardDashboard() {
 
     if (!code) {
       setScanError("QR does not contain a valid 6-digit code.");
+      setShowScanner(false);
       return;
     }
     setScanCode(code);
     void verifyCode(code);
+    setShowScanner(false);
   }
 
-  function handleQrError() {
-    setScanError("QR scan failed. Try again.");
+  function handleQrError(err?: unknown) {
+    const message =
+      err && typeof err === "object" && "name" in err && (err as { name?: string }).name === "AbortError"
+        ? "Unable to access camera. Check browser permissions and that no other app is using the camera, then try again."
+        : "QR scan failed. Try again.";
+    setScanError(message);
+    setShowScanner(false);
   }
 
   const describeAction = (label: string): string => {
@@ -206,6 +212,8 @@ export default function EstateGuardDashboard() {
         return "";
     }
   };
+
+  const isCheckout = (scanResult ?? "").toLowerCase().includes("checked out");
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
@@ -251,27 +259,11 @@ export default function EstateGuardDashboard() {
               </div>
             </div>
 
-            {(scanResult || scanError) && (
+            {scanError && (
               <div className="rounded-xl border px-3 py-2 text-xs md:text-sm flex items-start gap-2 bg-slate-50">
-                {scanError ? (
-                  <span className="mt-0.5 h-2 w-2 rounded-full bg-red-500" />
-                ) : (
-                  <span className="mt-0.5 h-2 w-2 rounded-full bg-emerald-500" />
-                )}
+                <span className="mt-0.5 h-2 w-2 rounded-full bg-red-500" />
                 <div className="flex flex-col gap-1 flex-1">
-                  {scanError && <span className="text-red-700 font-medium">{scanError}</span>}
-                  {scanResult && <span className="text-emerald-800 font-medium">{scanResult}</span>}
-                  {scanResult && isAdminCode !== null && (
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border w-max ${
-                        isAdminCode
-                          ? "bg-amber-50 text-amber-800 border-amber-200"
-                          : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                      }`}
-                    >
-                      {isAdminCode ? "Admin code" : "Resident code"}
-                    </span>
-                  )}
+                  <span className="text-red-700 font-medium">{scanError}</span>
                 </div>
                 <button
                   type="button"
@@ -349,7 +341,14 @@ export default function EstateGuardDashboard() {
                       className="flex-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
                       disabled={verifying || scanCode.length !== 6}
                     >
-                      {verifying ? "Verifying..." : "Verify"}
+                      {verifying ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="h-3 w-3 rounded-full border-2 border-white/60 border-t-transparent animate-spin" />
+                          <span>Verifying...</span>
+                        </span>
+                      ) : (
+                        "Verify"
+                      )}
                     </button>
                     <button
                       type="button"
@@ -457,20 +456,26 @@ export default function EstateGuardDashboard() {
               className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 text-sm"
               onClick={() => setShowAdminModal(false)}
             >
-              
+              <span aria-hidden="true">&times;</span>
             </button>
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
-                  ADM
-                </div>
-                <div className="flex flex-col">
-                  <p className="text-sm font-semibold text-emerald-950">Admin code details</p>
-                  <p className="text-[11px] text-slate-500">Review what this admin code allows and who raised it.</p>
-                </div>
+            <div className="mb-4 flex flex-col items-center text-center gap-2">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <FaCheckCircle className="h-7 w-7" />
               </div>
-              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200">
-                Admin code
+              <p className="text-sm font-semibold text-emerald-950">
+                {isCheckout ? "Guest checked out" : "Guest checked in"}
+              </p>
+              <p className="text-[11px] text-slate-500">
+                {scanResult || "Guest access has been verified at the gate."}
+              </p>
+              <span
+                className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                  isAdminCode
+                    ? "bg-amber-50 text-amber-800 border-amber-200"
+                    : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                }`}
+              >
+                {isAdminCode ? "Admin code" : "Resident code"}
               </span>
             </div>
 
@@ -519,18 +524,6 @@ export default function EstateGuardDashboard() {
                   </p>
                 </div>
               </div>
-              {adminDetails.qrCodeUrl && (
-                <div className="mt-1">
-                  <a
-                    href={adminDetails.qrCodeUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] font-semibold text-emerald-700 hover:underline"
-                  >
-                    Open QR code image in new tab
-                  </a>
-                </div>
-              )}
             </div>
 
             <div className="mt-4 flex justify-end">

@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     prisma.accessCode.count({ where }),
     prisma.accessCode.findMany({
       where,
-      orderBy: { id: "desc" },
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {

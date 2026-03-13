@@ -11,7 +11,6 @@ export default function AdminGenerateCodePage() {
   const [guestName, setGuestName] = useState("");
   const [validityMinutes, setValidityMinutes] = useState(60);
   const [usageType, setUsageType] = useState("ENTRY_AND_EXIT");
-  const [usageLimit, setUsageLimit] = useState(1);
   type AccessCodeResult = {
     code: string;
     inviteStart: string;
@@ -37,7 +36,8 @@ export default function AdminGenerateCodePage() {
       const res = await fetch("/api/admin/generate-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ createdById, purpose, guestName, validityMinutes, usageType, usageLimit }),
+        // Admin codes are always single-use; enforce usageLimit = 1
+        body: JSON.stringify({ createdById, purpose, guestName, validityMinutes, usageType, usageLimit: 1 }),
       });
       const data = await res.json();
       if (!res.ok) setError(data.error || "Failed to generate code");
@@ -59,14 +59,14 @@ export default function AdminGenerateCodePage() {
           <div className="flex flex-col">
             <h1 className="text-lg font-semibold text-emerald-950 tracking-tight sm:text-xl">Generate admin code</h1>
             <p className="text-[11px] text-emerald-700">
-              Create one-time or limited-use access codes for visitors and deliveries.
+              Create single-use admin access codes for visitors and deliveries.
             </p>
           </div>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-900 border border-emerald-100 self-start sm:self-auto">
           <span className="text-[10px] uppercase tracking-wide text-emerald-700">Usage cap</span>
           <span className="h-1 w-1 rounded-full bg-emerald-400" />
-          <span>1 - 4 scans</span>
+	          <span>Single-use · 1 scan only</span>
         </div>
       </header>
 
@@ -118,7 +118,9 @@ export default function AdminGenerateCodePage() {
               <div className="inline-flex rounded-full bg-emerald-50/60 p-1 text-[11px] text-emerald-900 border border-emerald-100 w-full max-w-xs">
                 <button
                   type="button"
-                  onClick={() => setUsageType("ENTRY_AND_EXIT")}
+                  onClick={() => {
+		            setUsageType("ENTRY_AND_EXIT");
+                  }}
                   className={
                     "flex-1 rounded-full px-3 py-1 font-semibold transition " +
                     (usageType === "ENTRY_AND_EXIT"
@@ -130,7 +132,9 @@ export default function AdminGenerateCodePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setUsageType("ENTRY_ONLY")}
+                  onClick={() => {
+		            setUsageType("ENTRY_ONLY");
+                  }}
                   className={
                     "flex-1 rounded-full px-3 py-1 font-semibold transition " +
                     (usageType === "ENTRY_ONLY"
@@ -143,29 +147,7 @@ export default function AdminGenerateCodePage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1 sm:max-w-[220px]">
-              <label className="text-[11px] font-medium text-emerald-900">Usage limit</label>
-              <div className="inline-flex items-center justify-between rounded-full border border-emerald-200 bg-white px-2 py-1 shadow-sm text-[11px] text-emerald-900">
-                <button
-                  type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-sm font-semibold"
-                  onClick={() => setUsageLimit(prev => Math.max(1, prev - 1))}
-                >
-                  -
-                </button>
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="text-[12px] font-semibold">{usageLimit} scan{usageLimit > 1 ? "s" : ""}</span>
-                  <span className="text-[10px] text-emerald-700">Min 1 • Max 4</span>
-                </div>
-                <button
-                  type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-700 text-emerald-50 hover:bg-emerald-800 text-sm font-semibold"
-                  onClick={() => setUsageLimit(prev => Math.min(4, prev + 1))}
-                >
-                  +
-                </button>
-              </div>
-            </div>
+            {/* Usage limit is fixed at 1 scan for admin codes, so no adjustable control is shown here. */}
           </div>
 
           <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

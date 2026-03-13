@@ -7,7 +7,11 @@ import { authOptions } from "@/lib/auth";
 export async function GET() {
   const session = await getServerSession(authOptions);
   const user = session?.user as { id?: string; role?: string } | undefined;
-  if (!user?.id || user.role !== "ADMIN") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!user?.id || user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const residents = await prisma.user.findMany({
     where: { role: "MAIN_RESIDENT" },
     select: {
@@ -19,5 +23,6 @@ export async function GET() {
     },
     orderBy: { fullName: "asc" },
   });
+
   return NextResponse.json({ residents });
 }

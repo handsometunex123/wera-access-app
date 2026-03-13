@@ -187,6 +187,7 @@ export default function ResidentGenerateCodePage() {
   >(null);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({ });
+  const [showResultModal, setShowResultModal] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -225,6 +226,7 @@ export default function ResidentGenerateCodePage() {
       if (!res.ok) setError(data.error || "Failed to generate code");
       else {
         setResult(data);
+        setShowResultModal(true);
       }
     } catch {
       setError("Network error");
@@ -425,93 +427,105 @@ export default function ResidentGenerateCodePage() {
         </form>
         </div>
 
-        {result && (
-          <div className="mt-4 rounded-2xl border border-emerald-100 bg-white/80 p-3 shadow-sm sm:p-4">
-            <div className="mb-3">
-              <h2 className="text-sm font-semibold text-emerald-950 tracking-tight">Generated code</h2>
-              <p className="text-[11px] text-emerald-700">Share this code or QR with your guest or estate security.</p>
-            </div>
-            <div className="rounded-xl border border-emerald-50 bg-emerald-50/40 px-3 py-3 sm:px-4">
-              <div className="mb-3 flex flex-col items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Scan QR</span>
-                <Image
-                  src={result.qr}
-                  alt="QR Code"
-                  width={140}
-                  height={140}
-                  className="object-contain border rounded-lg bg-white"
-                  priority
-                  unoptimized
-                />
-                <div className="rounded-full bg-white px-3 py-1 font-mono text-[13px] font-semibold text-emerald-900 border border-emerald-100 break-all text-center">
-                  {result.code}
-                </div>
+        {showResultModal && result && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/60 px-4">
+            <div className="relative w-full max-w-md rounded-2xl border border-emerald-100 bg-white/95 p-4 shadow-2xl sm:p-5">
+              <button
+                type="button"
+                onClick={() => setShowResultModal(false)}
+                className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs font-bold"
+                aria-label="Close generated code details"
+              >
+                ×
+              </button>
+              <div className="mb-3 pr-6">
+                <h2 className="text-sm font-semibold text-emerald-950 tracking-tight">Generated code</h2>
+                <p className="text-[11px] text-emerald-700">
+                  Share this code or QR with your guest or estate security.
+                </p>
               </div>
-              <div className="mb-3 flex flex-wrap justify-center gap-2">
-                <button
-                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-[12px] font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(result.code);
-                    toast.success("Code copied to clipboard!");
-                  }}
-                  type="button"
-                >
-                  <ArrowDownTrayIcon className="w-4 h-4" /> Copy
-                </button>
-                <button
-                  className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1.5 text-[12px] font-semibold text-sky-800 shadow-sm hover:bg-sky-100"
-                  onClick={async () => {
-                    if (navigator.share) {
-                      await navigator.share({ title: "Access Code", text: result.code });
-                    } else {
+              <div className="rounded-xl border border-emerald-50 bg-emerald-50/40 px-3 py-3 sm:px-4">
+                <div className="mb-3 flex flex-col items-center gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Scan QR</span>
+                  <Image
+                    src={result.qr}
+                    alt="QR Code"
+                    width={160}
+                    height={160}
+                    className="object-contain border rounded-lg bg-white"
+                    priority
+                    unoptimized
+                  />
+                  <div className="rounded-full bg-white px-3 py-1 font-mono text-[13px] font-semibold text-emerald-900 border border-emerald-100 break-all text-center">
+                    {result.code}
+                  </div>
+                </div>
+                <div className="mb-3 flex flex-wrap justify-center gap-2">
+                  <button
+                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-[12px] font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100"
+                    onClick={async () => {
                       await navigator.clipboard.writeText(result.code);
                       toast.success("Code copied to clipboard!");
-                    }
-                  }}
-                  type="button"
-                >
-                  <ShareIcon className="w-4 h-4" /> Share
-                </button>
-                <button
-                  className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm hover:bg-slate-100"
-                  onClick={async () => {
-                    if (navigator.canShare && window.Blob && result.qr.startsWith('data:image')) {
-                      try {
-                        const res = await fetch(result.qr);
-                        const blob = await res.blob();
-                        const file = new File([blob], 'access-qr.png', { type: blob.type });
-                        if (navigator.canShare({ files: [file] })) {
-                          await navigator.share({ files: [file], title: 'Access QR Code' });
-                          return;
-                        }
-                      } catch {}
-                    }
-                    const link = document.createElement('a');
-                    link.href = result.qr;
-                    link.download = `access-qr.png`;
-                    link.click();
-                  }}
-                  type="button"
-                >
-                  <QrCodeIcon className="w-4 h-4" /> Share QR
-                </button>
-              </div>
-              <div className="grid gap-2 text-[11px] text-emerald-900 sm:grid-cols-2">
-                <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
-                  <span className="font-semibold">Valid from:</span>
-                  <span>{result.validFrom ? new Date(result.validFrom).toLocaleString() : '-'}</span>
+                    }}
+                    type="button"
+                  >
+                    <ArrowDownTrayIcon className="w-4 h-4" /> Copy
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1.5 text-[12px] font-semibold text-sky-800 shadow-sm hover:bg-sky-100"
+                    onClick={async () => {
+                      if (navigator.share) {
+                        await navigator.share({ title: "Access Code", text: result.code });
+                      } else {
+                        await navigator.clipboard.writeText(result.code);
+                        toast.success("Code copied to clipboard!");
+                      }
+                    }}
+                    type="button"
+                  >
+                    <ShareIcon className="w-4 h-4" /> Share
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-3 py-1.5 text-[12px] font-semibold text-slate-800 shadow-sm hover:bg-slate-100"
+                    onClick={async () => {
+                      if (navigator.canShare && window.Blob && result.qr.startsWith('data:image')) {
+                        try {
+                          const res = await fetch(result.qr);
+                          const blob = await res.blob();
+                          const file = new File([blob], 'access-qr.png', { type: blob.type });
+                          if (navigator.canShare({ files: [file] })) {
+                            await navigator.share({ files: [file], title: 'Access QR Code' });
+                            return;
+                          }
+                        } catch {}
+                      }
+                      const link = document.createElement('a');
+                      link.href = result.qr;
+                      link.download = `access-qr.png`;
+                      link.click();
+                    }}
+                    type="button"
+                  >
+                    <QrCodeIcon className="w-4 h-4" /> Share QR
+                  </button>
                 </div>
-                <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
-                  <span className="font-semibold">Valid to:</span>
-                  <span>{result.validTo ? new Date(result.validTo).toLocaleString() : '-'}</span>
-                </div>
-                <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
-                  <span className="font-semibold">Expected guests:</span>
-                  <span>{result.usageLimit ?? '-'}</span>
-                </div>
-                <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
-                  <span className="font-semibold">Usage type:</span>
-                  <span>{result.usageType ? result.usageType.replace("_", " ") : '-'}</span>
+                <div className="grid gap-2 text-[11px] text-emerald-900 sm:grid-cols-2">
+                  <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
+                    <span className="font-semibold">Valid from:</span>
+                    <span>{result.validFrom ? new Date(result.validFrom).toLocaleString() : '-'}</span>
+                  </div>
+                  <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
+                    <span className="font-semibold">Valid to:</span>
+                    <span>{result.validTo ? new Date(result.validTo).toLocaleString() : '-'}</span>
+                  </div>
+                  <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
+                    <span className="font-semibold">Expected guests:</span>
+                    <span>{result.usageLimit ?? '-'}</span>
+                  </div>
+                  <div className="rounded-lg bg-white/80 px-2.5 py-2 border border-emerald-100 flex items-center justify-between">
+                    <span className="font-semibold">Usage type:</span>
+                    <span>{result.usageType ? result.usageType.replace("_", " ") : '-'}</span>
+                  </div>
                 </div>
               </div>
             </div>

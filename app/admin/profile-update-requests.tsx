@@ -11,6 +11,7 @@ interface ProfileUpdateRequest {
   id: string;
   updateType: string;
   status: string;
+  rejectionReason?: string;
   createdAt: string;
   user: {
     id: string;
@@ -26,6 +27,10 @@ export default function ProfileUpdateRequestsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
+
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     fetchRequests();
@@ -52,9 +57,15 @@ export default function ProfileUpdateRequestsPage() {
   }
 
   function handleAction(id: string, action: "approve" | "reject") {
-    if (!window.confirm(`Are you sure you want to ${action} this request?`)) return;
+    if (action === "reject") {
+      setRejectId(id);
+      setRejectReason("");
+      setShowRejectModal(true);
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to approve this request?`)) return;
     setLoading(true);
-    fetch(`/api/admin/profile-update-requests/${id}/${action}`, { method: "POST" })
+    fetch(`/api/admin/profile-update-requests/${id}/approve`, { method: "POST" })
       .then(res => res.json())
       .then(data => {
         if (data.error) setError(data.error);
@@ -62,6 +73,30 @@ export default function ProfileUpdateRequestsPage() {
       })
       .catch(() => setError("Network error"))
       .finally(() => setLoading(false));
+  }
+
+  async function handleRejectConfirm() {
+    if (!rejectId || !rejectReason.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/profile-update-requests/${rejectId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rejectionReason: rejectReason.trim() }),
+      });
+      const data = await res.json();
+      if (data.error) setError(data.error);
+      else {
+        setShowRejectModal(false);
+        setRejectId(null);
+        setRejectReason("");
+        fetchRequests();
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -119,7 +154,54 @@ export default function ProfileUpdateRequestsPage() {
             )}
           </div>
         </div>
-        {loading && <div className="text-[11px] text-emerald-800">Loading...</div>}
+        {loading && (
+          <div className="mb-3 space-y-3">
+            {/* Mobile skeleton cards */}
+            <div className="space-y-3 md:hidden">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start justify-between gap-3 rounded-2xl border border-emerald-100 bg-white/90 p-3 shadow-sm animate-pulse"
+                >
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-32 rounded-full bg-emerald-50" />
+                    <div className="h-2.5 w-40 rounded-full bg-emerald-50" />
+                    <div className="h-2.5 w-32 rounded-full bg-emerald-50" />
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                    <div className="h-6 w-16 rounded-full bg-rose-50" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop skeleton rows */}
+            <div className="hidden md:block">
+              <div className="overflow-hidden rounded-xl border border-emerald-50 bg-white/80">
+                <div className="max-h-[480px] overflow-y-auto">
+                  <div className="divide-y divide-emerald-50">
+                    {Array.from({ length: 6 }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between px-4 py-2.5 text-xs animate-pulse"
+                      >
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3 w-40 rounded-full bg-emerald-50" />
+                          <div className="h-2.5 w-32 rounded-full bg-emerald-50" />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="h-6 w-16 rounded-full bg-emerald-50" />
+                          <div className="h-6 w-16 rounded-full bg-rose-50" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {error && <div className="mb-2 text-[11px] font-semibold text-red-700">{error}</div>}
 
         {/* Mobile: stacked cards */}
@@ -136,6 +218,9 @@ export default function ProfileUpdateRequestsPage() {
                   <div className="mt-1 text-[11px] text-emerald-900 break-words whitespace-normal">
                     {req.updateType}
                   </div>
+                  {req.status === "REJECTED" && req.rejectionReason && (
+                    <div className="mt-1 text-[10px] text-rose-700 font-semibold">Reason: {req.rejectionReason}</div>
+                  )}
                   <div className="mt-1 text-[10px] text-emerald-600">
                     {new Date(req.createdAt).toLocaleString()}
                   </div>
@@ -194,6 +279,9 @@ export default function ProfileUpdateRequestsPage() {
                       </td>
                       <td className="px-4 py-2.5 align-middle">
                         <span className="text-[11px] text-emerald-800">{req.updateType}</span>
+                        {req.status === "REJECTED" && req.rejectionReason && (
+                          <div className="mt-1 text-[10px] text-rose-700 font-semibold">Reason: {req.rejectionReason}</div>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 align-middle">
                         <span className="text-[11px] text-emerald-800">
@@ -261,6 +349,38 @@ export default function ProfileUpdateRequestsPage() {
           </div>
         </div>
       </section>
+
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm relative animate-fadeIn">
+            <h2 className="text-lg font-bold text-emerald-900 mb-4 text-center">Are you sure you want to reject this request?</h2>
+            <div className="mb-4">
+              <label className="block mb-2 text-sm font-medium text-rose-700">Reason for rejection</label>
+              <input
+                type="text"
+                className="w-full border border-rose-200 rounded px-3 py-2 text-sm mb-2"
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                placeholder="Enter reason..."
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 rounded bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200"
+                onClick={() => setShowRejectModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-rose-600 text-white font-semibold hover:bg-rose-700"
+                onClick={handleRejectConfirm}
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

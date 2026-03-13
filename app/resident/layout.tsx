@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -11,6 +11,7 @@ type ResidentLink = {
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   requiresAdminCodePermission?: boolean;
+  requiresMainResident?: boolean;
 };
 
 const residentLinks: ResidentLink[] = [
@@ -18,20 +19,20 @@ const residentLinks: ResidentLink[] = [
   { href: "/resident/generate-code", label: "Generate Code", icon: KeyIcon },
   { href: "/resident/manage-codes", label: "Manage Codes", icon: KeyIcon },
   { href: "/resident/generate-admin-code", label: "Generate Admin Code", icon: KeyIcon, requiresAdminCodePermission: true },
-  { href: "/resident/dependants", label: "Dependants", icon: UserGroupIcon },
+  { href: "/resident/payment-requests", label: "Payment Requests", icon: BanknotesIcon, requiresMainResident: true },
   { href: "/resident/notifications", label: "Notifications", icon: BellAlertIcon },
   { href: "/resident/support-tickets", label: "Support Tickets", icon: LifebuoyIcon },
   { href: "/resident/feedback", label: "Feedback", icon: ChatBubbleBottomCenterTextIcon },
   { href: "/resident/estate-contacts", label: "Estate Contacts", icon: PhoneArrowDownLeftIcon },
+  { href: "/resident/dependants", label: "Dependants", icon: UserGroupIcon },
   { href: "/resident/profile", label: "Profile", icon: UserCircleIcon },
-  { href: "/resident/payment-requests", label: "Payment Requests", icon: BanknotesIcon },
 ];
 
 export default function ResidentLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<
-    { id: string; title: string; subtitle?: string; createdAt: string; type: string }[]
+    { id: string; title: string; subtitle?: string; createdAt: string; type: string; read: boolean }[]
   >([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
@@ -39,7 +40,38 @@ export default function ResidentLayout({ children }: { children: React.ReactNode
   const [unreadCount, setUnreadCount] = useState(0);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
 
-  async function loadNotifications() {
+  const [headerSelectedNotification, setHeaderSelectedNotification] = useState<
+    { id: string; title: string; subtitle?: string; createdAt: string; type: string; read: boolean } | null
+  >(null);
+  const [headerModalOpen, setHeaderModalOpen] = useState(false);
+
+  const readOverridesRef = useRef<Set<string> | null>(null);
+
+  function loadReadOverrides() {
+    if (readOverridesRef.current) return readOverridesRef.current;
+    try {
+      const stored = typeof window !== "undefined" ? window.localStorage.getItem("resident_read_notifications") : null;
+      const parsed: string[] = stored ? JSON.parse(stored) : [];
+      readOverridesRef.current = new Set(parsed.filter((v) => typeof v === "string"));
+    } catch {
+      readOverridesRef.current = new Set();
+    }
+    return readOverridesRef.current!;
+  }
+
+  function persistReadOverrides() {
+    try {
+      if (typeof window === "undefined" || !readOverridesRef.current) return;
+      window.localStorage.setItem(
+        "resident_read_notifications",
+        JSON.stringify(Array.from(readOverridesRef.current)),
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  const loadNotifications = useCallback(async () => {
     try {
       setNotificationsLoading(true);
       setNotificationsError(null);
@@ -49,16 +81,26 @@ export default function ResidentLayout({ children }: { children: React.ReactNode
         return;
       }
       const data = (await res.json()) as {
-        notifications?: { id: string; title: string; subtitle?: string; createdAt: string; type: string }[];
+        notifications?: {
+          id: string;
+          title: string;
+          subtitle?: string;
+          createdAt: string;
+          type: string;
+          read?: boolean;
+        }[];
       };
-      const items = (data.notifications ?? []).slice(0, 10);
+      const overrides = loadReadOverrides();
+      const items = (data.notifications ?? [])
+        .slice(0, 10)
+        .map((n) => ({ ...n, read: overrides.has(n.id) ? true : Boolean(n.read) }));
       setNotifications(items);
       setNotificationsLoadedOnce(true);
-      setUnreadCount(items.length);
+      setUnreadCount(items.filter((n) => !n.read).length);
     } finally {
       setNotificationsLoading(false);
     }
-  }
+  }, []);
 
   async function toggleNotifications() {
     const nextOpen = !notificationsOpen;
@@ -69,8 +111,6 @@ export default function ResidentLayout({ children }: { children: React.ReactNode
     if (!notificationsLoadedOnce) {
       await loadNotifications();
     }
-
-    setUnreadCount(0);
   }
 
   useEffect(() => {
@@ -88,6 +128,66 @@ export default function ResidentLayout({ children }: { children: React.ReactNode
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [notificationsOpen]);
+
+  useEffect(() => {
+    if (!notificationsLoadedOnce) {
+      void loadNotifications();
+    }
+  }, [notificationsLoadedOnce, loadNotifications]);
+
+  async function setHeaderNotificationRead(id: string, read: boolean) {
+    const overrides = loadReadOverrides();
+    if (read) {
+      overrides.add(id);
+    } else {
+      overrides.delete(id);
+    }
+    persistReadOverrides();
+
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read } : n));
+      setUnreadCount(updated.filter((n) => !n.read).length);
+      return updated;
+    });
+
+    // Only attempt to persist real Notification rows; scan events use synthetic IDs ("scan-...")
+    if (!id.startsWith("scan-")) {
+      try {
+        const res = await fetch("/api/resident/notifications", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, read }),
+        });
+        if (!res.ok && notificationsLoadedOnce) {
+          await loadNotifications();
+        }
+      } catch {
+        if (notificationsLoadedOnce) {
+          await loadNotifications();
+        }
+      }
+    }
+  }
+
+  function openHeaderNotification(n: {
+    id: string;
+    title: string;
+    subtitle?: string;
+    createdAt: string;
+    type: string;
+    read: boolean;
+  }) {
+    setHeaderSelectedNotification(n);
+    setHeaderModalOpen(true);
+    if (!n.read) {
+      void setHeaderNotificationRead(n.id, true);
+    }
+  }
+
+  function closeHeaderModal() {
+    setHeaderModalOpen(false);
+    setHeaderSelectedNotification(null);
+  }
 
   return (
     <SessionProvider>
@@ -151,29 +251,52 @@ export default function ResidentLayout({ children }: { children: React.ReactNode
                       )}
                       {!notificationsLoading && !notificationsError && notifications.length > 0 && (
                         <ul className="space-y-2">
-                          {notifications.map((n) => (
-                            <li
-                              key={n.id}
-                              className="flex items-start gap-2 rounded-lg bg-emerald-50/60 px-2.5 py-2"
-                            >
-                              <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />
-                              <div className="flex min-w-0 flex-1 flex-col">
-                                <span className="truncate text-xs font-medium text-emerald-950">{n.title}</span>
-                                {n.subtitle && (
-                                  <span className="truncate text-[11px] text-emerald-800">{n.subtitle}</span>
-                                )}
-                                <span className="text-[11px] text-emerald-700/80">
-                                  {new Date(n.createdAt).toLocaleString(undefined, {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
+                          {notifications
+                            .slice()
+                            .sort((a, b) => {
+                              if (a.read === b.read) {
+                                return (
+                                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                                );
+                              }
+                              return a.read ? 1 : -1;
+                            })
+                            .map((n) => (
+                            <li key={n.id}>
+                              <button
+                                type="button"
+                                onClick={() => openHeaderNotification(n)}
+                                className={
+                                  "flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition " +
+                                  (n.read
+                                    ? "bg-white hover:bg-emerald-50"
+                                    : "bg-emerald-50/60 hover:bg-emerald-100/80")
+                                }
+                              >
+                                <span
+                                  className={
+                                    "mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full " +
+                                    (n.read ? "bg-emerald-300" : "bg-emerald-500")
+                                  }
+                                />
+                                <div className="flex min-w-0 flex-1 flex-col">
+                                  <span className="truncate text-xs font-medium text-emerald-950">{n.title}</span>
+                                  {n.subtitle && (
+                                    <span className="truncate text-[11px] text-emerald-800">{n.subtitle}</span>
+                                  )}
+                                  <span className="text-[11px] text-emerald-700/80">
+                                    {new Date(n.createdAt).toLocaleString(undefined, {
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
+                                </div>
+                                <span className="ml-1 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-100">
+                                  {n.type}
                                 </span>
-                              </div>
-                              <span className="ml-1 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-100">
-                                {n.type}
-                              </span>
+                              </button>
                             </li>
                           ))}
                         </ul>
@@ -181,7 +304,7 @@ export default function ResidentLayout({ children }: { children: React.ReactNode
                     </div>
                     <div className="flex items-center justify-between border-t border-emerald-50 px-3 py-2">
                       <span className="text-[11px] text-slate-500">
-                        Showing latest {notifications.length} of 10
+                        Showing {notifications.filter((n) => !n.read).length} unread of 10
                       </span>
                       <Link
                         href="/resident/notifications"
@@ -245,6 +368,42 @@ export default function ResidentLayout({ children }: { children: React.ReactNode
             </div>
           </div>
         )}
+        {headerModalOpen && headerSelectedNotification && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4 py-6">
+            <div className="w-full max-w-md rounded-2xl border border-emerald-100 bg-white p-4 shadow-xl">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-emerald-950">Resident notification</h3>
+                  <p className="text-[11px] text-emerald-700">
+                    {new Date(headerSelectedNotification.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeHeaderModal}
+                  className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="rounded-xl bg-emerald-50/60 p-3">
+                <p className="mb-1 text-xs font-semibold text-emerald-900">{headerSelectedNotification.title}</p>
+                {headerSelectedNotification.subtitle && (
+                  <p className="text-[11px] text-emerald-900 whitespace-pre-wrap break-words">
+                    {headerSelectedNotification.subtitle}
+                  </p>
+                )}
+                {!headerSelectedNotification.subtitle && (
+                  <p className="text-[11px] text-emerald-900 whitespace-pre-wrap break-words">
+                    {headerSelectedNotification.type === "SCAN"
+                      ? "Guest access update from gate scan."
+                      : "Estate notification."}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </SessionProvider>
   );
@@ -282,9 +441,12 @@ function ResidentSidebarLinks({ onNavigate }: { onNavigate?: () => void } = {}) 
 
   const visibleLinks = residentLinks.filter((link) => {
     if ((link as { requiresAdminCodePermission?: boolean }).requiresAdminCodePermission) {
+      // Only show "Generate Admin Code" when this account is explicitly allowed
       return !!canGenerateAdminCode;
     }
-    if (link.href === "/resident/payment-requests") {
+    if ((link as { requiresMainResident?: boolean }).requiresMainResident) {
+      // Only decide once we actually know the role to avoid flicker
+      if (role === null) return false;
       return role === "MAIN_RESIDENT";
     }
     return true;

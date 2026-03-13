@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import SkeletonLoader from "@/components/SkeletonLoader";
 import Image from "next/image";
 import ResidentBackToDashboard from "@/components/ResidentBackToDashboard";
 import { XMarkIcon } from "@heroicons/react/24/solid";
@@ -151,7 +152,7 @@ export default function DependantsPage() {
           </button>
         </div>
         {loading ? (
-          <div className="text-center text-emerald-700">Loading...</div>
+          <SkeletonLoader className="w-full" count={3} variant="card" />
         ) : error ? (
           <div className="text-center text-red-700">{error}</div>
         ) : dependants.length === 0 ? (

@@ -136,6 +136,46 @@ export default function AuditLogsPage() {
 
       {/* Results */}
       <section className="rounded-2xl border border-emerald-100 bg-white/80 p-3 shadow-sm sm:p-4">
+        {loading && (
+          <div className="mb-3 space-y-3">
+            {/* Mobile skeleton cards */}
+            <div className="space-y-3 md:hidden">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-emerald-100 bg-white/90 p-3 shadow-sm animate-pulse"
+                >
+                  <div className="h-3 w-32 rounded-full bg-emerald-50" />
+                  <div className="mt-2 h-2.5 w-40 rounded-full bg-emerald-50" />
+                  <div className="mt-2 h-2.5 w-48 rounded-full bg-emerald-50" />
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop skeleton rows */}
+            <div className="hidden md:block">
+              <div className="overflow-hidden rounded-xl border border-emerald-50 bg-white/80">
+                <div className="max-h-[480px] overflow-y-auto">
+                  <div className="divide-y divide-emerald-50">
+                    {Array.from({ length: 6 }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between px-4 py-2.5 text-xs animate-pulse"
+                      >
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3 w-40 rounded-full bg-emerald-50" />
+                          <div className="h-2.5 w-32 rounded-full bg-emerald-50" />
+                        </div>
+                        <div className="h-2.5 w-24 rounded-full bg-emerald-50" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mobile cards */}
         {!loading && logs.length > 0 && (
           <div className="space-y-3 md:hidden">
@@ -175,32 +215,56 @@ export default function AuditLogsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-emerald-50">
-                  {logs.map((log) => (
-                    <tr key={log.id} className="transition hover:bg-emerald-50/60">
-                      <td className="px-4 py-2.5 align-middle">
-                        <div className="flex flex-col">
-                          <span className="truncate text-[13px] font-semibold text-emerald-950">{log.user.fullName}</span>
-                          <span className="truncate text-[11px] text-emerald-700">{log.user.email}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 align-middle">
-                        <span className="truncate text-[11px] text-emerald-800">{log.user.email}</span>
-                      </td>
-                      <td className="px-4 py-2.5 align-middle">
-                        <span className="text-[11px] text-emerald-900">{log.action}</span>
-                      </td>
-                      <td className="px-4 py-2.5 align-middle">
-                        <span className="max-w-xs break-words break-all text-[10px] text-emerald-800">
-                          {log.metadata}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 align-middle">
-                        <span className="text-[11px] text-emerald-800">
-                          {new Date(log.createdAt).toLocaleString()}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {loading &&
+                    Array.from({ length: 6 }).map((_, idx) => (
+                      <tr key={idx} className="animate-pulse">
+                        <td className="px-4 py-2.5 align-middle">
+                          <div className="flex flex-col gap-1">
+                            <div className="h-3 w-32 rounded-full bg-emerald-50" />
+                            <div className="h-2.5 w-40 rounded-full bg-emerald-50" />
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <div className="h-2.5 w-32 rounded-full bg-emerald-50" />
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <div className="h-2.5 w-24 rounded-full bg-emerald-50" />
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <div className="h-2.5 w-40 rounded-full bg-emerald-50" />
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <div className="h-2.5 w-28 rounded-full bg-emerald-50" />
+                        </td>
+                      </tr>
+                    ))}
+                  {!loading &&
+                    logs.map((log) => (
+                      <tr key={log.id} className="transition hover:bg-emerald-50/60">
+                        <td className="px-4 py-2.5 align-middle">
+                          <div className="flex flex-col">
+                            <span className="truncate text-[13px] font-semibold text-emerald-950">{log.user.fullName}</span>
+                            <span className="truncate text-[11px] text-emerald-700">{log.user.email}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <span className="truncate text-[11px] text-emerald-800">{log.user.email}</span>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <span className="text-[11px] text-emerald-900">{log.action}</span>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <span className="max-w-xs break-words break-all text-[10px] text-emerald-800">
+                            {log.metadata}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 align-middle">
+                          <span className="text-[11px] text-emerald-800">
+                            {new Date(log.createdAt).toLocaleString()}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                   {logs.length === 0 && !loading && (
                     <tr>
                       <td

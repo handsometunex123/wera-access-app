@@ -6,8 +6,9 @@ import QRCode from "qrcode";
 // POST: Generate admin access code
 export async function POST(request: Request) {
 	try {
-		const { createdById, purpose, guestName, validityMinutes, usageType, usageLimit, itemDetails, itemImageUrl } = await request.json();
-		if (!createdById || !purpose || !validityMinutes || !usageType || !usageLimit) {
+		const { createdById, purpose, guestName, validityMinutes, usageType, itemDetails, itemImageUrl } = await request.json();
+		// usageLimit from the request is ignored; admin codes are always single-use.
+		if (!createdById || !purpose || !validityMinutes || !usageType) {
 			return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
 		}
 
@@ -32,8 +33,8 @@ export async function POST(request: Request) {
 				type: "ADMIN", // Mark as admin code
 				inviteStart: now,
 				inviteEnd,
-				// Enforce max usage limit of 4
-				usageLimit: Math.min(Number(usageLimit) || 1, 4),
+				// Admin codes are always single-use
+				usageLimit: 1,
 				usageCount: 0,
 				entryCount: 0,
 				exitCount: 0,

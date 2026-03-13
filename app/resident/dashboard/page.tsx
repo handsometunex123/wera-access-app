@@ -24,14 +24,18 @@ export default function ResidentDashboard() {
       setLoading(true);
       const res = await fetch("/api/resident/profile");
       const data = await res.json();
+      console.log({data});
       const manage = data?.profile?.canManageCodes;
-      const canAdminCode = data?.profile?.canGenerateAdminCode;
+      const canAdminCode = Boolean(data?.profile?.canGenerateAdminCode);
       const role = data?.profile?.role as string | undefined;
+      console.log({role});
+      const isMainResidentLocal = role === "MAIN_RESIDENT";
+      const dependant = role === "DEPENDANT";
+
       setResidentName(data?.profile?.fullName || "Resident");
       setProfileImage(data?.profile?.profileImage || null);
-      const dependant = data?.profile?.role === "DEPENDANT";
       setCanManageCodes(Boolean(manage));
-      setIsMainResident(role === "MAIN_RESIDENT");
+      setIsMainResident(isMainResidentLocal);
 
       const baseActions = [
         manage && {
@@ -59,7 +63,7 @@ export default function ResidentDashboard() {
           label: "Notifications",
           icon: <FaBell className="h-6 w-6 text-yellow-600" />,
         },
-        isMainResident && {
+        isMainResidentLocal && {
           href: "/resident/payment-requests",
           label: "Payment Requests",
           icon: <FaMoneyBillWave className="h-6 w-6 text-emerald-700" />,

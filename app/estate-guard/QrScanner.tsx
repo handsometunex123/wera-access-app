@@ -94,7 +94,7 @@ React.useEffect(() => {
         {
           fps: 30, // Max out practical FPS for quicker detection
           // Slightly larger scan area so the code is easier to catch
-          qrbox: { width: 260, height: 260 },
+          qrbox: { width: 320, height: 320 },
           aspectRatio: 1.0,
           videoConstraints: {
             facingMode: "environment",
@@ -108,8 +108,25 @@ React.useEffect(() => {
             useBarCodeDetectorIfSupported: true,
           },
         } as Html5QrcodeCameraScanConfig,
-        (decodedText) => {
+        async (decodedText) => {
           if (!isMounted) return;
+          // Prevent handling multiple times
+          isMounted = false;
+
+          // Stop and clear the scanner immediately on successful scan
+          const scanner = html5QrcodeScannerRef.current;
+          if (scanner) {
+            try {
+              const state = scanner.getState();
+              if (state === 2 || state === 3) {
+                await scanner.stop().catch(() => {});
+              }
+              try {
+                await scanner.clear();
+              } catch {}
+            } catch {}
+          }
+
           onScan(decodedText);
         },
         () => {
@@ -157,7 +174,7 @@ React.useEffect(() => {
       <div
         id={scannerId ?? undefined}
         ref={scannerRef}
-        className="w-full max-w-xs aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 border-emerald-700"
+        className="w-full max-w-sm aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 border-emerald-700"
       ></div>
       <button
         type="button"

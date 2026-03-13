@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
       subtitle,
       createdAt: scan.createdAt,
       type: "SCAN",
+      read: false,
     };
   });
 
@@ -52,13 +53,50 @@ export async function GET(req: NextRequest) {
     subtitle: n.message,
     createdAt: n.createdAt,
     type: "NOTIFICATION",
+    read: n.read,
   }));
 
-  const all = [...mappedNotifications, ...mappedScans].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const all = [...mappedNotifications, ...mappedScans].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
   const total = notificationsCount + scansCount;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const start = (page - 1) * pageSize;
   const pageItems = all.slice(start, start + pageSize);
 
   return NextResponse.json({ notifications: pageItems, total, page, pageSize, totalPages });
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession();
+  const user = session?.user as { id?: string } | undefined;
+  if (!user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id, read } = (await req.json()) as { id?: string; read?: unknown };
+  if (!id || typeof read !== "boolean") {
+    return NextResponse.json({ error: "id and read(boolean) are required" }, { status: 400 });
+  }
+
+  // Synthetic IDs for scan notifications don't correspond to a Notification row
+  if (id.startsWith("scan-")) {
+    return NextResponse.json({ success: true });
+  }
+
+  try {
+    const result = await prisma.notification.updateMany({
+      where: { id, userId: user.id },
+      data: { read },
+    });
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: "Notification not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Failed to update resident notification read state", err);
+    return NextResponse.json({ error: "Failed to update notification" }, { status: 400 });
+  }
 }
